@@ -2,15 +2,15 @@ from os import environ
 
 SESSION_CONFIGS = [
     dict(
-        name='ac25',
-        display_name='Autocorrelation 25',
+        name='sb26',
+        display_name='Sequence Betting with Optimism (2/2026)',
         num_demo_participants=1,
         app_sequence=[
-        'intro',
-        'sequences',
-        'mpl',
-        'lotr',
-        'payout' 
+        'intro', # General Intro + Consent
+        'sequences', # Sequence Betting Task
+        'mpl', # Holt-Laury
+        'lotr', # LOT-R Optimism
+        'payout' # Payoff screen
         ],  
 
         # Treatment controls
