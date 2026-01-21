@@ -1,0 +1,115 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+{% block title %}{% endblock %}
+{% block content %}
+
+<div style="margin-top: 10px;">
+  <h2 style="margin-bottom: 15px;">Obecné informace</h2>
+
+  <ul>
+    <li>Tato studie se skládá ze dvou experimentálních a jedné dotazníkové části. </li>
+    <li>Detailní instrukce Vám budou zobrazeny na začátku každé části.</li>
+    <li>Délka studie je zhruba 30 minut.</li>
+    <li>Za průběh studie odpovídá Vojtěch Zíka, Ph.D. (vojtech.zika@ujep.cz).</li>
+  </ul>
+</div>
+
+
+<div style="margin-top: 30px;">
+  <h2>Odměny</h2>
+
+  <p>
+    Za účast v této studii obdržíte finanční odměnu, která se skládá z fixní a variabilní složky.
+  </p>
+  
+  <p>
+    <strong>Fixní složka odměny.</strong> 
+    Jako účastník této studie máte nárok na odměnu ve výši 150 Kč. Tato částka nezávisí na Vašem rozhodování v průběhu studie.
+  </p>
+
+  <p>
+    <strong>Variabilní složka odměny</strong> 
+    <ul>
+      <li>
+        Výše a výpočet variabilní odměny bude detailně popsán v každé části.
+      </li>
+      <li>
+        Variabilní odměny jsou v rámci studie uváděny v experimentální měně ECU. Konverzní poměr mezi ECU a českými korunami je <strong>1&nbsp;ECU&nbsp;=&nbsp;1&nbsp;Kč</strong>.
+      </li>
+      <li> 
+        Variabilní odměna závisí na Vašem rozhodování v průběhu studie. Čtěte proto prosím pozorně instrukce a řiďte se jimi; nepozorné nebo náhodné odpovídání může vést ke snížení variabilní složky odměny.
+      </li>  
+    </ul>
+    
+  </p>
+
+  <p>
+    Odměna Vám bude vyplacena po skončení studie podle instrukcí administrátora.
+  </p>
+  
+
+
+</div>
+
+<div style="margin-top: 30px;">
+<h2>Informovaný souhlas</h2>
+
+    
+<p>
+  Abyste mohli pokračovat ve studii, potřebujeme od Vás získat informovaný souhlas s účastí ve studii. 
+  Věnujte prosím pozornost následujícím informacím.
+</p>
+
+
+    <p>
+      <strong>Účel studie a anonymita dat.</strong>
+      Tato studie je pořádána za účelem sběru dat pro akademický výzkum v oblasti lidského chování a rozhodování.
+      Sebraná data jsou anonymní a nelze je zpětně spojit s konkrétní osobou.
+      Data mohou být využita pro sepsání výzkumného článku, který může být publikován v akademickém časopise.
+      V souladu s principy otevřené vědy mohou být anonymizovaná surová data zpřístupněna online na platformách k tomu určených (například osf.io).
+      Zveřejněná data nebudou obsahovat žádné informace umožňující identifikaci účastníků.
+    </p>
+
+    <p>
+      <strong>Obsah a náročnost studie.</strong>
+      Studie se skládá z ekonomických her a dotazníků. 
+      Náročnost jakékoliv části této studie nepřekračuje fyzickou nebo psychickou náročnost běžné kancelářské práce.
+    </p>
+
+
+    <p>
+      <strong>Chování během studie.</strong>
+      Během studie nekomunikujte s ostatními účastníky a řiďte se pokyny administrátorů. 
+      Pokud to není nutné, během studie nejezte a nepijte. 
+      Všechna elektronická zařízení prosím uveďte do režimu, ve kterém nebudou rušit Vás ani ostatní účastníky. 
+      V případě jakýchkoliv otázek či technických problémů zvedněte ruku a v tichosti vyčkejte příchodu administrátora.
+    </p>
+
+
+    <p>
+      <strong>Dobrovolnost a předčasné ukončení studie.</strong>
+      Účast ve studii je dobrovolná a můžete ji kdykoliv ukončit bez udání důvodů.
+      Pokud budete chtít studii ukončit předčasně, zvedněte ruku a vyčkejte příchodu administrátora. 
+      V případě předčasného ukončení studie máte nárok na fixní odměnu za účast na studii, nikoliv však na odměnu získanou během studie samotné.
+    </p>
+</div>
+
+  <label>
+    <h2 style="margin-top: 30px;">Souhlas s účastí ve studii</h2>
+    <p>
+      Souhlasíte s podmínkami účasti ve studii?
+      Pokračováním potvrzujete, že jste instrukce přečetli a porozuměli jim.
+    </p>
+  </label>
+  <div style="margin-top: 10px;">
+    {{ form.consent }} 
+  </div>
+  
+
+<div style="height: 50px;"></div>
+
+
+{% next_button %}
+
+
+{% endblock %}

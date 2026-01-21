@@ -1,0 +1,69 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}Část III.{% endblock %}
+
+{% block content %}
+
+<p>
+  Odpovězte prosím na následující otázky týkající se Vaší osoby.
+  Míru svého souhlasu uveďte pomocí níže uvedené škály.
+</p>
+
+<hr>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">1. {{ items.0 }}</div>
+  {{ form.lotr_1 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">2. {{ items.1 }}</div>
+  {{ form.lotr_2 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">3. {{ items.2 }}</div>
+  {{ form.lotr_3 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">4. {{ items.3 }}</div>
+  {{ form.lotr_4 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">5. {{ items.4 }}</div>
+  {{ form.lotr_5 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">6. {{ items.5 }}</div>
+  {{ form.lotr_6 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">7. {{ items.6 }}</div>
+  {{ form.lotr_7 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">8. {{ items.7 }}</div>
+  {{ form.lotr_8 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">9. {{ items.8 }}</div>
+  {{ form.lotr_9 }}
+</div>
+
+<div style="margin: 18px 0;">
+  <div style="font-weight: 600; margin-bottom: 6px;">10. {{ items.9 }}</div>
+  {{ form.lotr_10 }}
+</div>
+
+<hr>
+
+{% next_button %}
+
+{% endblock %}

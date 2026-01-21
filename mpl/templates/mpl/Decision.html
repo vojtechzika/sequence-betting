@@ -1,0 +1,153 @@
+{% extends "global/Page.html" %}
+{% load staticfiles otree %}
+{% load i18n %}
+
+{% block styles %}
+    <link href="{% static 'mpl/css/custom.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block scripts %}
+    {% if Constants.small_pies == True or Constants.large_pies == True %}
+        <script>
+            num_choices = {{ Constants.num_choices|json }};
+
+            lottery_a_hi = parseFloat("{{ lottery_a_hi }}").toFixed(1) + " ECU";
+            lottery_a_lo = parseFloat("{{ lottery_a_lo }}").toFixed(1) + " ECU";
+            lottery_b_hi = parseFloat("{{ lottery_b_hi }}").toFixed(1) + " ECU";
+            lottery_b_lo = parseFloat("{{ lottery_b_lo }}").toFixed(1) + " ECU";
+
+            one_choice = "{{ Constants.one_choice_per_page }}";
+            percentage = "{{ Constants.percentage }}";
+            large_pies = "{{ Constants.large_pies }}";
+        </script>
+        <script src="https://code.highcharts.com/highcharts.js"></script>
+        <script src="{% static 'mpl/js/pie_charts.js' %}"></script>
+    {% endif %}
+
+    {% if Constants.enforce_consistency == True %}
+        {% if Constants.one_choice_per_page == False and Constants.random_order == False %}
+            <script src="{% static 'mpl/js/consistency.js' %}"></script>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% block title %}
+    {% trans "Vaše rozhodnutí" %}
+{% endblock %}
+
+{% block content %}
+<div class="wrapper">
+
+    {# Progress Bar #}
+    {% if Constants.one_choice_per_page == True and Constants.progress_bar == True %}
+        <label>
+            {% blocktrans trimmed with page=page total=total %}
+                Page {{ page }} of {{ total }}
+            {% endblocktrans %}
+        </label>
+        <div class="progress">
+            <div class="progress-bar" role="progressbar" style="width:{{ progress|json }}%;">
+                <span class="sr-only"></span>
+            </div>
+        </div>
+    {% endif %}
+
+    {# Large pies, one choice per page #}
+    {% if Constants.one_choice_per_page == True and Constants.large_pies == True %}
+
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr class="header">
+                        <th class="center">{% trans "Možnost A" %}</th>
+                        <th class="center">{% trans "Možnost B" %}</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for i,f,p in choices %}
+                        <tr>
+                            <td class="pie-chart">
+                                <div id="pie_a_{{ i }}" class="pie-chart"></div>
+                            </td>
+                            <td class="pie-chart">
+                                <div id="pie_b_{{ i }}" class="pie-chart"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="center">
+                                <button name="{{ f }}" value="A" class="btn btn-primary">
+                                    {% trans "Možnost A" %}
+                                </button>
+                            </td>
+                            <td class="center">
+                                <button name="{{ f }}" value="B" class="btn btn-primary">
+                                    {% trans "Možnost B" %}
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    {% else %}
+
+        {# Choice list table (small pies optional) #}
+        <div class="card">
+            <table class="table table-striped">
+                <thead>
+                    <tr class="header">
+                        {% if Constants.small_pies == True %}
+                            <th class="pie-chart"></th>
+                        {% endif %}
+                        <th class="lottery-a">{% trans "Možnost A" %}</th>
+                        <th class="formfield"></th>
+                        <th class="lottery-b">{% trans "Možnost B" %}</th>
+                        {% if Constants.small_pies == True %}
+                            <th class="pie-chart"></th>
+                        {% endif %}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for i,f,p in choices %}
+                        <tr>
+                            {% if Constants.small_pies == True %}
+                                <td class="pie-chart">
+                                    <div id="pie_a_{{ i }}" class="pie-chart"></div>
+                                </td>
+                            {% endif %}
+
+                            <td class="lottery-a">
+                                {{ lottery_a_hi }} {% trans "s pravděpodobností " %}{{ p }},<br/>
+                                {% trans "jinak" %} {{ lottery_a_lo }} 
+                            </td>
+
+                            <td class="formfield">
+                                <input type="radio" name="{{ f }}" value="A" required>
+                                <input type="radio" name="{{ f }}" value="B" required>
+                            </td>
+
+                            <td class="lottery-b">
+                                {{ lottery_b_hi }} {% trans "s pravděpodobností " %}{{ p }},<br/>
+                                {% trans "jinak" %} {{ lottery_b_lo }} 
+                            </td>
+
+                            {% if Constants.small_pies == True %}
+                                <td class="pie-chart">
+                                    <div id="pie_b_{{ i }}" class="pie-chart"></div>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% next_button %}
+
+    {% endif %}
+
+</div>
+{% endblock %}

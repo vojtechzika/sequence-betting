@@ -1,0 +1,44 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}Kontrolní otázky{% endblock %}
+
+{% block content %}
+
+ <p>
+  Na následujících otázkách si můžete ověřit, zda rozumíte klíčovým instrukcím této části studie.
+</p>
+
+  <label  style="font-weight:600;">{{ form.cq_keep_endowment.label }}</label>
+{% for value, label in cq_keep_endowment_choices %}
+  <div>
+    <label>
+      <input type="radio" name="cq_keep_endowment" value="{{ value }}" required>
+      {{ label }}
+    </label>
+  </div>
+{% endfor %}
+
+  <hr>
+
+  <div>
+    <label style="font-weight:600;">{{ form.cq_multiplier.label }}</label>
+    {% for value, label in cq_multiplier_choices %}
+      <div style="margin-top:6px;">
+        <label>
+          <input type="radio" name="cq_multiplier" value="{{ value }}" required>
+          {{ label }}
+        </label>
+      </div>
+    {% endfor %}
+  </div>
+
+  <hr>
+
+  {{ formfield 'cq_recency' }}
+
+  <div style="margin-top:20px; text-align:right;">
+    <button class="otree-btn otree-btn-primary otree-btn-next">Pokračovat</button>
+  </div>
+
+{% endblock %}

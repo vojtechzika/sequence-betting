@@ -1,0 +1,61 @@
+from os import environ
+
+SESSION_CONFIGS = [
+    dict(
+        name='ac25',
+        display_name='Autocorrelation 25',
+        num_demo_participants=1,
+        app_sequence=[
+        'intro',
+        'sequences',
+        'mpl',
+        'lotr',
+        'payout' 
+        ],  
+
+        # Treatment controls
+        treatment_weights={'m25': 0.75, 'm19': 0.25},      
+        treatment_multipliers={'m25': 2.5, 'm19': 1.9},
+
+
+    ),
+]
+
+# if you set a property in SESSION_CONFIG_DEFAULTS, it will be inherited by all configs
+# in SESSION_CONFIGS, except those that explicitly override it.
+# the session config can be accessed from methods in your apps as self.session.config,
+# e.g. self.session.config['participation_fee']
+
+SESSION_CONFIG_DEFAULTS = dict(
+    real_world_currency_per_point=1.00,   # 1 ECU = 1 CZK (adjust if needed)
+    participation_fee=150.00,
+    doc=""
+)
+
+PARTICIPANT_FIELDS = []
+SESSION_FIELDS = []
+
+LANGUAGE_CODE = 'cs'
+
+# Experimental units
+USE_POINTS = True
+POINTS_CUSTOM_NAME = 'ECU'
+
+# Real payment currency (only for final payout)
+REAL_WORLD_CURRENCY_CODE = 'CZK'
+REAL_WORLD_CURRENCY_PER_POINT = 1
+
+ADMIN_USERNAME = 'admin'
+ADMIN_PASSWORD = environ.get('OTREE_ADMIN_PASSWORD')
+
+DEMO_PAGE_INTRO_HTML = ""
+
+SECRET_KEY = '4416572140507'
+
+ROOMS = [
+    dict(
+        name='lab',
+        display_name='Laboratory',
+        participant_label_file='_rooms/lab_labels.txt',  # optional
+    ),
+]

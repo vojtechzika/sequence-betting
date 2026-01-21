@@ -1,0 +1,417 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block content %}
+
+<!-- Keep sequence in URL for ET grouping -->
+<script>
+(function () {
+  var target = '?' + '{{ seq }}';
+  if (location.search !== target) {
+    window.history.replaceState(null, '', window.location.pathname + target);
+  }
+})();
+</script>
+
+<style>
+  html, body { height:100%; background:#fff; }
+
+  .meta {
+  white-space: pre-line;
+}
+
+  /* PROGRESS BAR (unchanged offsets) */
+  .progressbar {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: -50px; /* your original */
+  }
+  .progressbar .sq {
+    display: inline-block;
+    background: #fff;
+    border: 1px solid #000;
+    box-sizing: border-box;
+    vertical-align: middle;
+  }
+  .progressbar .sq.done { background: #4CAF50; }
+  .progressbar .sq.cur  { background: #999; }
+
+  /* SEQUENCE (unchanged sizes/margins) */
+  .sequence-wrap {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    align-items: center;
+    margin: 60px auto 0 auto; /* your original */
+    width: 100%;
+  }
+  .sym {
+    font-family: Arial, "Helvetica Neue", sans-serif;
+    font-weight: 100;
+    font-size: 110px;
+    line-height: 140px;
+    width: 140px;
+    height: 140px;
+    text-align: center;
+    display: inline-block;
+    border: 2px solid #000;
+    box-sizing: border-box;
+    margin: 0;
+  }
+
+  /* DECISION CARD (unchanged margin) */
+  .decision-card{
+    width: 100%;
+    max-width: 720px;
+    margin: 180px auto 0 auto; /* your original */
+    padding: 18px 20px;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    background: #fafafa;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+
+  /* Practice panel (colors only cosmetic) */
+  #practice {
+    width: 100%;
+    padding: 20px;
+    margin-bottom: 100px;
+    margin-top: -50px;
+    border: 2px solid #a94442;
+    background-color: #f2dede;
+    border-radius: 6px;
+    display: block;
+
+  }
+
+  .choices{
+    display:flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content:center;
+    align-items:center;
+    margin-bottom: 10px;
+  }
+  .choices .otree-btn{
+    min-width:100px;
+    min-height:100px;
+    font-size:18px;
+    line-height:1.1;
+  }
+  .choices .otree-btn.active{
+    background-color:#007bff; color:#fff; border:2px solid #0056b3;
+  }
+
+  .stake{ margin-top:22px; }
+  .is-hidden{ visibility:hidden; opacity:0; pointer-events:none; }
+
+  .range{ width:100%; margin-top:14px; }
+  .stakeVal{ width:100%; text-align:center; font-weight:600; margin-top:6px; }
+  .meta{ margin-top:20px; color:#555; font-size:14px; text-align:center; min-height:1.4em; }
+
+  /* Hide slider thumb until user interacts */
+  input[type=range][data-empty="true"]::-webkit-slider-thumb { visibility:hidden; }
+  input[type=range][data-empty="true"]::-moz-range-thumb { visibility:hidden; }
+  input[type=range][data-empty="true"]{ background:#ddd; }
+  input[type=range][data-empty="true"]::-webkit-slider-runnable-track{ background:#ddd; }
+
+  .footer{ margin-top:18px; display:flex; justify-content:center; }
+  .footer .otree-btn[disabled]{ opacity:.5; cursor:not-allowed; }
+
+  .intro {
+    margin: 160px auto 0 auto;   /* top margin + centered horizontally */
+    max-width: 700px;           /* keeps text comfortably readable */
+    text-align: center;         /* center-aligned text */
+    font-size: 1.3em;           /* slightly larger than default */
+    line-height: 1.5;           /* improves readability */
+    color: #444;                /* neutral, non-distracting */
+}
+
+.strategy {
+    margin: 20px auto 30px auto;   /* top margin + centered horizontally */
+    max-width: 600px;           /* keeps text comfortably readable */
+    text-align: center;         /* center-aligned text */
+}
+</style>
+
+{% if is_practice %}
+    <div id="practice">
+      <ul>
+        <li>
+          Toto zkušební kolo slouží k seznámení s rozhodovací obrazovkou a nemá vliv na Vaši odměnu.
+        </li>
+
+        <li>
+          Ukazatel postupu zobrazuje, v jakém kole a bloku se nacházíte (šedá), kolik kol ještě zbývá (bílá) a kolik kol již máte za sebou (zelená).
+        </li>
+
+        <li>
+          Historie hodů je zobrazena v rámečcích zleva doprava. V ostré části budou symboly X a Y nahrazeny symboly H (Hlava) a O (Orel).
+        </li>
+
+        <li>
+          V šedém boxu zvolíte své rozhodnutí pro následující hod mincí. 
+          Po kliknutí na Hlavu nebo Orla se zobrazí posuvník pro určení výše sázky; po kliknutí na Nesázet pokračujete bez sázky do dalšího kola.
+        </li>
+      </ul>      
+    </div>
+  {% endif %}
+
+<div id="progress" class="progressbar"
+     data-t="{{ t }}"
+     data-n="{{ n_rounds }}"
+     data-b="{{ n_blocks }}">
+</div>
+
+<div class="intro">
+  <b>
+    Toto je jedna z možných historií hodů mincí{% if is_practice %}{% else %} (H = Hlava, O = Orel){% endif %}.
+  </b><br>
+  Nejstarší hod je zobrazen vlevo, nejnovější vpravo.
+</div>
+
+<div class="sequence-wrap" id="seq" data-seq="{{ seq }}"></div>
+
+<div class="decision-card">
+
+
+<div class="strategy">
+  Vaše rozhodnutí pro následující hod mincí:
+</div>
+
+  <div class="choices">
+    {% if outcomes_left %}
+      <button type="button" class="otree-btn otree-btn-primary" data-side="{{ outcomes_left }}">
+        {{ nickname_left }}
+      </button>
+    {% endif %}
+    {% if outcomes_right %}
+      <button type="button" class="otree-btn otree-btn-primary" data-side="{{ outcomes_right }}">
+        {{ nickname_right }}
+      </button>
+    {% endif %}
+    <button type="button" class="otree-btn" data-side="NB">Nesázet</button>
+  </div>
+
+  <div class="stake" id="stakeWrap">
+    <div id="stakeControls" class="is-hidden">
+      <div style="text-align:center;">Kliknutím na posuvník zvolte výši sázky (1—{{ endowment }} ECU).</div>
+      <input type="range" class="range" id="stake" min="1" max="{{ endowment }}" step="1" value="" data-empty="true">
+      <div class="stakeVal">Sázka: <span id="stakeVal">–</span></div>
+    </div>
+    <div class="meta" id="stakeInfo"></div>
+  </div>
+
+  <!-- hidden fields -->
+  <input type="hidden" name="side" id="id_side">
+  <input type="hidden" name="stake" id="id_stake">
+  <input type="hidden" name="screen_time_ms" id="id_screen_time_ms">
+
+  <!-- AOI (practice only; safe in all rounds) -->
+  <input type="hidden" name="aoi_boxes_px"  id="id_aoi_boxes_px">
+  <input type="hidden" name="viewport_w_px" id="id_viewport_w_px">
+  <input type="hidden" name="viewport_h_px" id="id_viewport_h_px">
+  <input type="hidden" name="dpr"           id="id_dpr">
+
+  <div class="footer">
+    <button type="submit" class="otree-btn otree-btn-next" id="nextBtn" disabled>Pokračovat</button>
+  </div>
+</div>
+
+<!-- PROGRESS BAR JS (unchanged logic) -->
+<script>
+(function () {
+  var el = document.getElementById('progress');
+  if (!el) return;
+
+  var T = parseInt(el.dataset.t || '1', 10);
+  var N = parseInt(el.dataset.n || '64', 10);
+  var B = Math.max(1, parseInt(el.dataset.b || '4', 10));
+
+  var base = Math.floor(N / B), rem = N % B, sizes = [];
+  for (var i = 0; i < B; i++) sizes.push(base + (i < rem ? 1 : 0));
+
+  var blockEnds = [], acc = 0;
+  for (var j = 0; j < sizes.length; j++) { acc += sizes[j]; blockEnds.push(acc); }
+
+  var gap = 2, bigGap = 10;
+
+  function render() {
+    var w = el.clientWidth;
+    var totalGaps = gap * (N - 1) + bigGap * (B - 1);
+    var sq = Math.floor((w - totalGaps) / N);
+    if (sq < 4) sq = 4;
+
+    el.innerHTML = '';
+    for (var i = 1; i <= N; i++) {
+      var d = document.createElement('div');
+      d.className = 'sq' + (i < T ? ' done' : (i === T ? ' cur' : ''));
+      d.style.width  = sq + 'px';
+      d.style.height = sq + 'px';
+
+      var mr = (i < N ? gap : 0) + (blockEnds.indexOf(i) !== -1 && i !== N ? bigGap : 0);
+      if (mr) d.style.marginRight = mr + 'px';
+
+      el.appendChild(d);
+    }
+  }
+  render();
+  window.addEventListener('resize', function () {
+    clearTimeout(el._pbTimer);
+    el._pbTimer = setTimeout(render, 100);
+  });
+})();
+</script>
+
+<!-- CUT SEQUENCE INTO BOXES (unchanged sizes) -->
+<script>
+(function () {
+  var el = document.getElementById('seq');
+  if (!el) return;
+  var s = (el.dataset.seq || '').trim();
+  el.innerHTML = '';
+  for (var i = 0; i < s.length; i++) {
+    var box = document.createElement('div');
+    box.className = 'sym';
+    box.textContent = s[i];
+    el.appendChild(box);
+  }
+})();
+</script>
+
+<!-- BETTING + STABLE SCREEN TIME -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function $(id){ return document.getElementById(id); }
+
+  var fSide  = $('id_side');
+  var fStake = $('id_stake');
+  var fRT    = $('id_screen_time_ms');
+
+  var nextBtn       = $('nextBtn');
+  var stakeControls = $('stakeControls');
+  var stake         = $('stake');
+  var stakeVal      = $('stakeVal');
+  var stakeInfo     = $('stakeInfo');
+
+  var selectedLabel = '';  // “Hlava” / “Orel”
+  var m  = Number('{{ multiplier }}'.replace(',', '.'));
+  var E  = Number('{{ endowment }}');
+
+  /* stable RT across refresh via uid */
+  var uid = '{{ uid }}';
+  var LS_KEY = 'rt_start_' + uid;
+  var rtStart = Date.now();
+  try {
+    var stored = localStorage.getItem(LS_KEY);
+    if (stored) rtStart = Number(stored);
+    else localStorage.setItem(LS_KEY, String(rtStart));
+  } catch(e) {}
+
+  fStake.value = '';
+  stakeInfo.textContent = '';
+
+  function updateStakeInfo(val) {
+    var v = Number(val);
+    fStake.value = v;
+    stakeVal.textContent = v + ' ECU' + (selectedLabel ? (' / ' + selectedLabel) : '');
+
+    var win  = Math.round((E - v) + v * m);
+    var lose = Math.round(E - v);
+    stakeInfo.textContent =
+      'Bude-li toto kolo vybráno k vyplacení a padne zvolená strana, obdržíte ' + win +
+      ' ECU. \nPokud padne druhá strana, obdržíte ' + lose + ' ECU.';
+  }
+
+  // Choice buttons
+  var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-side]'));
+  buttons.forEach(function(btn){
+    btn.addEventListener('click', function () {
+      var side = this.getAttribute('data-side');
+      fSide.value = side;
+
+      buttons.forEach(function(b){ b.classList.remove('active'); });
+      this.classList.add('active');
+
+      if (side === 'NB') {
+        selectedLabel = '';
+        stakeControls.classList.add('is-hidden');
+        stake.setAttribute('data-empty','true');
+        stake.value = '';
+        fStake.value = 0;
+        stakeVal.textContent = '0';
+        stakeInfo.textContent = 'Bude-li toto kolo vybráno k vyplacení, získáte odměnu ' + E + ' ECU.';
+        nextBtn.disabled = false;
+      } else {
+        selectedLabel = this.textContent.trim();
+        stakeControls.classList.remove('is-hidden');
+        stake.setAttribute('data-empty','true');
+        stake.value = '';
+        fStake.value = '';
+        stakeVal.textContent = '– / ' + selectedLabel;
+        stakeInfo.textContent = '';
+        nextBtn.disabled = true;
+      }
+    });
+  });
+
+  // Slider movement
+  stake.addEventListener('input', function () {
+    if (stake.getAttribute('data-empty') === 'true') {
+      stake.removeAttribute('data-empty');
+    }
+    updateStakeInfo(this.value);
+    nextBtn.disabled = (fStake.value === '' || Number(fStake.value) < 1);
+  });
+
+  // Submit: write RT and clear stored start
+  nextBtn.addEventListener('click', function (ev) {
+    if (fSide.value !== 'NB' && (fStake.value === '' || Number(fStake.value) < 1)) {
+      ev.preventDefault();
+      return;
+    }
+    var now = Date.now();
+    fRT.value = Math.max(0, now - rtStart);
+    try { localStorage.removeItem(LS_KEY); } catch(e) {}
+  });
+});
+</script>
+
+<!-- AOI capture (practice only) -->
+<script>
+(function () {
+  var isPractice = {% if is_practice %}true{% else %}false{% endif %};
+  if (!isPractice) return;
+
+  function captureAOIs() {
+    var boxes = document.querySelectorAll('.sequence-wrap .sym');
+    if (!boxes.length) return;
+
+    var vw  = window.innerWidth  || document.documentElement.clientWidth;
+    var vh  = window.innerHeight || document.documentElement.clientHeight;
+    var dpr = window.devicePixelRatio || 1;
+
+    var arr = [];
+    boxes.forEach(function (b, i) {
+      var r = b.getBoundingClientRect();
+      arr.push({
+        i: i,
+        ch: b.textContent,
+        css: { x: r.left, y: r.top, w: r.width, h: r.height },
+        phys:{ x: Math.round(r.left*dpr), y: Math.round(r.top*dpr),
+               w: Math.round(r.width*dpr), h: Math.round(r.height*dpr) }
+      });
+    });
+
+    document.getElementById('id_aoi_boxes_px').value  = JSON.stringify(arr);
+    document.getElementById('id_viewport_w_px').value = Math.round(vw * dpr);
+    document.getElementById('id_viewport_h_px').value = Math.round(vh * dpr);
+    document.getElementById('id_dpr').value           = dpr;
+  }
+
+  window.addEventListener('load', function(){ setTimeout(captureAOIs, 50); });
+})();
+</script>
+
+{% endblock content %}

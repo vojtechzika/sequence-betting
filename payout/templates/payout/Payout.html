@@ -1,0 +1,33 @@
+{% extends "global/Page.html" %}
+{% block title %}Vaše odměna{% endblock %}
+
+{% block content %}
+<ul>
+  <li>
+    Hra se sekvencemi: k výplatě bylo vybráno kolo <b>{{ paid_seq_round }}</b>,
+    získaná odměna <b>{{ paid_seq_amount }} CZK</b>.
+  </li>
+  <li>
+    Holt–Lauryho úloha: k výplatě byl vybrán řádek <b>{{ paid_mpl_row }}</b>
+    (Vaše volba: <b>{{ paid_mpl_choice }}</b>),
+    získaná odměna <b>{{ paid_mpl_amount }} CZK</b>.
+  </li>
+</ul>
+
+<p>
+  <strong>Celková odměna: {{ total_paid }} CZK.</strong>
+</p>
+
+<p>
+  Váš výplatní kód:
+  <b>
+    {% if participant.label %}
+      {{ participant.label }}
+    {% else %}
+      {{ participant.code }}
+    {% endif %}
+  </b>
+</p>
+
+
+{% endblock %}

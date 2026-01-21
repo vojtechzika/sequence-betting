@@ -1,0 +1,37 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;">
+  <h2>Dokončili jste {{ blk }}. z celkem {{ n_blocks }} bloků.</h2>
+  <p>Za <span id="count">{{ break_seconds }}</span> sekund budete pokračovat.</p>
+
+  <!-- hidden continue button for fallback -->
+  <button class="otree-btn otree-btn-next" id="nextBtn" style="display:none;">Pokračovat</button>
+</div>
+
+<script>
+(function () {
+  var n = {{ break_seconds }};
+  var el = document.getElementById('count');
+  var btn = document.getElementById('nextBtn');
+
+  if (el && n) {
+    var timer = setInterval(function(){
+      n -= 1;
+      if (n <= 0) { n = 0; clearInterval(timer); }
+      el.textContent = n;
+    }, 1000);
+  }
+
+  // hidden keyboard override: press C to continue
+  document.addEventListener('keydown', function(e) {
+    if (e.key.toLowerCase() === 'c') {
+      btn.click();
+    }
+  });
+})();
+</script>
+{% endblock %}

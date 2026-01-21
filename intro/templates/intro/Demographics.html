@@ -1,0 +1,24 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+{% block title %}Demografické otázky{% endblock %}
+{% block content %}
+
+<style>
+  input[name="age"]{
+    max-width: 150px;
+  }
+</style>
+
+<p>
+  Následující otázky slouží výhradně k analytickým účelům.
+</p>
+  <ul>
+  	<li>Do pole <strong>Věk</strong> uveďte svůj věk v celých letech.</li>
+  	<li>Do pole <strong>Pohlaví</strong> uveďte pohlaví určené při narození; pokud tento údaj nechcete uvést, zvolte možnost „Nechci uvést“.</li>
+  </ul>
+  
+
+
+{{ formfields }}
+{% include "global/next_cz.html" %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "global/Page.html" %}
+{% block title %}{% endblock %}
+{% block content %}
+<style>
+  html, body { height:100%; overflow:hidden; }
+  body, .otree-body, .otree-content { background:#ffffff !important; }  /* white */
+
+  .otree-content { box-shadow:none !important; border:none !important; padding:0 !important; margin:0 !important; }
+  .container, .otree-container { max-width:none !important; padding:0 !important; margin:0 !important; }
+
+  .fix-wrap { position:fixed; inset:0; display:grid; place-items:center; cursor:none; }
+
+  :root { --cross-len: 40px; --stroke: 2px; }  /* adjust size/thickness */
+  svg { width:calc(var(--cross-len)*2); height:calc(var(--cross-len)*2); }
+  line { stroke:#000; stroke-width:var(--stroke); shape-rendering:crispEdges; }
+</style>
+
+<div class="fix-wrap" aria-hidden="true">
+  <svg viewBox="0 0 240 240" role="img" aria-label="fixation cross">
+    <line x1="120" y1="20"  x2="120" y2="220"></line>
+    <line x1="20"  y1="120" x2="220" y2="120"></line>
+  </svg>
+</div>
+
+<script>
+  setTimeout(function() {
+    document.querySelector('form').submit();
+  }, {{ fixation_ms }});
+</script>
+{% endblock %}
