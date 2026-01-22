@@ -281,5 +281,5 @@ page_sequence = [
     Comprehension,
     Fixation,
     Trial,
-    Break,
+    Break
 ]

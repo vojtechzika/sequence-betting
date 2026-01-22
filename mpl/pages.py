@@ -3,14 +3,30 @@ from ._builtin import Page, WaitPage
 from .config import Constants
 
 
-
 # helper to inject lottery labels everywhere we need them
+# def _lottery_ctx():
+#     return dict(
+#         lottery_a_lo=c(Constants.lottery_a_lo),
+#         lottery_a_hi=c(Constants.lottery_a_hi),
+#         lottery_b_lo=c(Constants.lottery_b_lo),
+#         lottery_b_hi=c(Constants.lottery_b_hi),
+#     )
+
+# make sure the decimals are shown properly
+def fmt(x):
+    x = round(float(x), 2)
+    if x.is_integer():
+        return f"{int(x)} ECU"
+    s = f"{x:.2f}".rstrip('0').rstrip('.')
+    s = s.replace('.', ',')   # decimal comma
+    return f"{s} ECU"
+
 def _lottery_ctx():
     return dict(
-        lottery_a_lo=c(Constants.lottery_a_lo),
-        lottery_a_hi=c(Constants.lottery_a_hi),
-        lottery_b_lo=c(Constants.lottery_b_lo),
-        lottery_b_hi=c(Constants.lottery_b_hi),
+        lottery_a_lo=fmt(Constants.lottery_a_lo),
+        lottery_a_hi=fmt(Constants.lottery_a_hi),
+        lottery_b_lo=fmt(Constants.lottery_b_lo),
+        lottery_b_hi=fmt(Constants.lottery_b_hi),
     )
 
 class Instructions(Page):

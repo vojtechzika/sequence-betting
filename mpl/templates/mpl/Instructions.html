@@ -24,7 +24,7 @@
 {# ****************************************************************************************************************** #}
 {% block content %}
 
-    <div class="wrapper instructions">
+    <div>
         <p>
             {% blocktrans trimmed with n=num_choices %}
                 {# 
@@ -34,7 +34,7 @@
                 #}
 
                 V této části studie učiníte {{ num_choices }} rozhodnutí mezi „Možností A“ a „Možností B“.
-                Obě možnosti se skládají z nižší a vyšší odměny, přičemž výše těchto odměn je stejná ve všech rozhodnutích.
+                Každá možnost se skládá z nižší a vyšší odměny, přičemž výše těchto odměn je stejná ve všech rozhodnutích.
                 Nižší odměna je vždy jistá, zatímco vyšší odměnu získáte s určitou pravděpodobností, která se liší mezi jednotlivými rozhodnutími (v rámci jednoho rozhodnutí je však stejná pro obě možnosti).
             {% endblocktrans %}
         </p>
@@ -47,10 +47,16 @@
                     payoff.
                 #}
 
-                Až učiníte všech {{ num_choices }} rozhodnutí, bude náhodně určeno jedno z nich.
+                Až učiníte všech {{ num_choices }} rozhodnutí, bude náhodně vylosováno jedno z nich.
                 Pro Vámi zvolenou možnost (A nebo B) v tomto rozhodnutí bude následně náhodně určeno, zda obdržíte nízkou nebo vysokou odměnu, a to v souladu s příslušnými pravděpodobnostmi.
             {% endblocktrans %}
         </p>
+
+        <p>
+          Částka získaná ve vylosovaném kole Vám bude vyplacena v poměru
+          <b>1&nbsp;ECU&nbsp;=&nbsp;1&nbsp;CZK</b>.
+        </p>
+
         <p>
             {% blocktrans trimmed with n=num_choices %}
                 {# 
@@ -65,6 +71,9 @@
                  Po dokončení bude náhodně vybráno jedno rozhodnutí k výplatě a náhodný los určí Vaši odměnu pro Vámi zvolenou možnost. 
             {% endblocktrans %}
         </p>
+
+
+
 
     </div>
 
