@@ -2,20 +2,31 @@
 {% block title %}Vaše odměna{% endblock %}
 
 {% block content %}
+
+<p>
+  <strong>Fixní odměna za účast:</strong> {{ showup_fee }}
+</p>
+
+<p>
+  <strong>Variabilní odměna:</strong> {{ variable_fee }}
+</p>
+
 <ul>
   <li>
-    Hra se sekvencemi: k výplatě bylo vybráno kolo <b>{{ paid_seq_round }}</b>,
-    získaná odměna <b>{{ paid_seq_amount }} CZK</b>.
+    Hra se sekvencemi: k výplatě bylo vylosováno kolo
+    <b>{{ paid_seq_round }}</b>,
+    získaná odměna <b>{{ paid_seq_amount }}</b>.
   </li>
+
   <li>
-    Holt–Lauryho úloha: k výplatě byl vybrán řádek <b>{{ paid_mpl_row }}</b>
-    (Vaše volba: <b>{{ paid_mpl_choice }}</b>),
-    získaná odměna <b>{{ paid_mpl_amount }} CZK</b>.
+    Výběr loterií: k výplatě byl vylosován řádek
+    <b>{{ paid_mpl_row }}</b>,
+    získaná odměna <b>{{ paid_mpl_amount }}</b>.
   </li>
 </ul>
 
 <p>
-  <strong>Celková odměna: {{ total_paid }} CZK.</strong>
+  <strong>CELKOVÁ ODMĚNA: {{ total_fee }}</strong>
 </p>
 
 <p>
@@ -28,6 +39,5 @@
     {% endif %}
   </b>
 </p>
-
 
 {% endblock %}

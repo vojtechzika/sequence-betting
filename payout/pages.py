@@ -3,10 +3,17 @@ import random
 from mpl.config import Constants as M
 
 
+def fmt_czk(x):
+    """
+    Format float CZK with decimal comma and 2 decimals, plus 'Kč'.
+    """
+    s = f"{float(x):.2f}".replace('.', ',')
+    return f"{s} Kč"
+
+
 class Payout(Page):
 
     def _find_sequences_players(self, all_players):
-        # sequences players have fields like trial_id/seq/stake/side
         out = []
         for pl in all_players:
             if hasattr(pl, 'trial_id') and hasattr(pl, 'seq') and hasattr(pl, 'stake') and hasattr(pl, 'side'):
@@ -14,7 +21,6 @@ class Payout(Page):
         return out
 
     def _find_mpl_player(self, all_players):
-        # mpl player has choice_1..choice_10 fields
         for pl in all_players:
             if hasattr(pl, 'choice_1') and hasattr(pl, 'choice_2'):
                 return pl
@@ -24,31 +30,32 @@ class Payout(Page):
         me = self.player
         par = self.participant
 
-        # already computed (prevents redraw on refresh)
+        # prevent redraw on refresh
         if me.field_maybe_none('paid_seq_round') is not None and me.field_maybe_none('paid_mpl_row') is not None:
             return
 
         all_players = par.get_players()
 
-        # -------- SEQUENCES: pick 1 round ----------
+        # ---------- SEQUENCES ----------
         seq_players = self._find_sequences_players(all_players)
         seq_players = [pl for pl in seq_players if pl.field_maybe_none('round_earnings') is not None]
 
         if not seq_players:
-            raise Exception("No sequences rounds with round_earnings found for this participant.")
+            raise Exception("No sequence rounds with round_earnings found.")
 
         chosen_seq = random.choice(seq_players)
-        me.paid_seq_round = chosen_seq.round_number
-        me.paid_seq_amount = cu(chosen_seq.round_earnings)
-        chosen_seq.payoff = me.paid_seq_amount
 
-        # -------- MPL: pay one row ----------
+        me.paid_seq_round = chosen_seq.round_number
+        me.paid_seq_amount = float(chosen_seq.round_earnings)
+
+        # admin Payments
+        chosen_seq.payoff = cu(chosen_seq.round_earnings)
+
+        # ---------- MPL ----------
         mpl_player = self._find_mpl_player(all_players)
         if mpl_player is None:
-            raise Exception("Could not locate MPL player (choice_1/choice_2 not found).")
+            raise Exception("MPL player not found.")
 
-        # If MPL already set these vars during creating_session, use them.
-        # Otherwise (e.g., old session), create them now so payout is stable.
         i = par.vars.get('mpl_index_to_pay')
         choice_field = par.vars.get('mpl_choice_to_pay')
 
@@ -60,9 +67,8 @@ class Payout(Page):
 
         option = getattr(mpl_player, choice_field, None)
         if option not in ('A', 'B'):
-            option = 'A'  # policy if blank/missing
+            option = 'A'
 
-        # Correct random draw: 1..num_choices
         r = random.randint(1, M.num_choices)
 
         if option == 'A':
@@ -72,35 +78,43 @@ class Payout(Page):
 
         me.paid_mpl_row = i
         me.paid_mpl_choice = option
-        me.paid_mpl_amount = cu(amount)
+        me.paid_mpl_amount = float(amount)
 
-        # store on mpl player for audit/export if field exists
-        try:
-            mpl_player.round_earnings = float(amount)
-        except Exception:
-            pass
-
+        # admin Payments
         mpl_player.payoff = cu(amount)
 
+        # total (points)
         me.total_paid = me.paid_seq_amount + me.paid_mpl_amount
 
-        # also store audit in participant vars (helps if you export)
+        # audit trail
         par.vars['seq_paid_round'] = me.paid_seq_round
-        par.vars['seq_paid_amount'] = float(chosen_seq.round_earnings)
+        par.vars['seq_paid_amount'] = me.paid_seq_amount
         par.vars['mpl_paid_row'] = i
         par.vars['mpl_paid_option'] = option
         par.vars['mpl_draw'] = r
-        par.vars['mpl_paid_amount'] = float(amount)
+        par.vars['mpl_paid_amount'] = me.paid_mpl_amount
 
     def vars_for_template(self):
         self._ensure_computed()
+
+        rw_per_point = float(self.session.config.get('real_world_currency_per_point', 1))
+        showup_czk = float(self.session.config.get('participation_fee', 0))
+
+        paid_seq_czk = self.player.paid_seq_amount * rw_per_point
+        paid_mpl_czk = self.player.paid_mpl_amount * rw_per_point
+        variable_czk = paid_seq_czk + paid_mpl_czk
+        total_czk = showup_czk + variable_czk
+
         return dict(
+            showup_fee=fmt_czk(showup_czk),
+            variable_fee=fmt_czk(variable_czk),
+            total_fee=fmt_czk(total_czk),
+
             paid_seq_round=self.player.paid_seq_round,
-            paid_seq_amount=self.player.paid_seq_amount,
+            paid_seq_amount=fmt_czk(paid_seq_czk),
+
             paid_mpl_row=self.player.paid_mpl_row,
-            paid_mpl_choice=self.player.paid_mpl_choice,
-            paid_mpl_amount=self.player.paid_mpl_amount,
-            total_paid=self.player.total_paid,
+            paid_mpl_amount=fmt_czk(paid_mpl_czk),
         )
 
 
