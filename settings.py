@@ -10,7 +10,8 @@ SESSION_CONFIGS = [
         'sequences', # Sequence Betting Task
         'mpl', # Holt-Laury
         'lotr', # LOT-R Optimism
-        'payout' # Payoff screen
+        'payout', # Payoff screen
+        'debriefing'
         ],  
 
         # Treatment controls
