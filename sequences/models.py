@@ -31,7 +31,7 @@ class C(BaseConstants):
     # === Custom sequences ===
     # If non-empty, overrides automatic generation.
     # Example: ["HHHHHH","TTTTTT"] or any strings you want to use.
-    CUSTOM_SEQUENCES = []
+    #CUSTOM_SEQUENCES = ["HHHHHH","TTTTTT"]
 
     # === Sequence set with fixed IDs (1..N) ===
     if CUSTOM_SEQUENCES:

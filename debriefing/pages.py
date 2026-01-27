@@ -1,12 +1,24 @@
 from otree.api import *
 
-class Debriefing(Page):
+
+class Survey(Page):
     form_model = 'player'
-    form_fields = ['used_strategy', 'strategy_text', 'belief_sequences', 'confidence', 'comment']
+    form_fields = [
+        'belief_independence',
+        'reliance_on_sequence',
+        'perceived_realism_history',
+        'action_seeking',
+        'enjoyment',
+        'fatigue',
+        'self_risk_tolerance',
+        'used_strategy',
+        'strategy_text',
+        'comment',
+    ]
 
 
 class Finished(Page):
     pass
 
 
-page_sequence = [Debriefing, Finished]
+page_sequence = [Survey, Finished]
