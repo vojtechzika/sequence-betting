@@ -88,7 +88,8 @@ class PracticeTrial(Page):
 
 class Comprehension(Page):
     form_model = 'player'
-    form_fields = ['cq_keep_endowment', 'cq_multiplier', 'cq_recency']
+    form_fields = ['cq_keep_endowment', 'cq_multiplier', 'cq_payment', 'cq_recency', 'cq_toss']
+
 
     def is_displayed(self):
         return self.round_number == 1
@@ -100,45 +101,55 @@ class Comprehension(Page):
 
         return dict(
             cq_keep_endowment_choices=[
-                (0, "0 ECU"),
-                (1, f"{E} ECU"),
-                (0, f"{int(E * m)} ECU"),
+                (1, "0 ECU"),
+                (2, f"{E} ECU"),
+                (3, f"{int(E * m)} ECU"),
             ],
             cq_multiplier_choices=[
-                (0, "100 ECU"),
-                (0, "Nevsazená částka"),
-                (0, f"{m_txt}násobek vsazené částky"),
-                (1, f"Nevsazená částka plus {m_txt}násobek vsazené částky"),
-            ]
+                (1, "100 ECU"),
+                (2, "Nevsazená částka"),
+                (3, f"{m_txt}-násobek vsazené částky"),
+                (4, f"Nevsazená částka plus {m_txt}-násobek vsazené částky"),
+            ],
+            cq_payment_choices=[
+                (1, "v jednom náhodně vybraném kole"),
+                (2, "ve všech kolech"),
+                (3, "v posledním kole"),
+            ],
+            cq_recency_choices=[
+                (1, "Vpravo"),
+                (2, "Vlevo"),
+            ],
+            cq_toss_choices=[
+                (1, "je v zobrazené šestici hodů častější "),
+                (2, "padla v posledním ze zobrazených šesti hodů"),
+                (3, "padne v hodu spravedlivou mincí, který následuje po zobrazené šestici hodů"),
+            ],
         )
 
     def error_message(self, values):
-        errors = []
+        errors = {}
 
-        checks = [
-            ('cq_keep_endowment', 1, "Odpovězte prosím na otázku č. 1.",
-             "Otázka č. 1 je zodpovězena nesprávně."),
-            ('cq_multiplier', 1, "Odpovězte prosím na otázku č. 2.",
-             "Otázka č. 2 je zodpovězena nesprávně."),
-            ('cq_recency', True, "Odpovězte prosím na otázku č. 3.",
-             "Otázka č. 3 je zodpovězena nesprávně."),
-        ]
+        correct = {
+            'cq_keep_endowment': 2,
+            'cq_multiplier': 4,
+            'cq_payment': 1,
+            'cq_recency': 1,
+            'cq_toss': 3,
+        }
 
-        for field, correct, missing_msg, wrong_msg in checks:
-            val = values.get(field)
+        missing_msg = "Odpovězte prosím na tuto otázku."
+        wrong_msg = "Tato otázka je zodpovězena nesprávně."
 
-            if val is None:
-                errors.append(missing_msg)
-                continue
+        for field, corr in correct.items():
+            v = values.get(field)
+            if v is None:
+                errors[field] = missing_msg
+            elif v != corr:
+                errors[field] = wrong_msg
 
-            try:
-                if val != correct:
-                    errors.append(wrong_msg)
-            except Exception:
-                errors.append(missing_msg)
-
+        self.participant.vars['cq_failed'] = bool(errors)
         return errors if errors else None
-
 
 # =========================
 # REAL TASK (your original sequences/pages.py)

@@ -116,33 +116,56 @@ class Player(BasePlayer):
     viewport_h_px = models.IntegerField(blank=True)
     dpr = models.FloatField(blank=True)
 
-    # Control questions
+    # Control questions (neutral codes; correctness is enforced in the Page)
     cq_keep_endowment = models.IntegerField(
         label="1. Pokud se v kole vybraném k vyplacení rozhodnete 'Nesázet', Vaše odměna bude:",
         choices=[
-            [1, "CORRECT"],
-            [0, "INCORRECT_1"],
-            [0, "INCORRECT_2"]
+            [1, "OPTION_1"],
+            [2, "OPTION_2"],
+            [3, "OPTION_3"],
         ],
-        widget=widgets.RadioSelect
+        widget=widgets.RadioSelect,
     )
 
     cq_multiplier = models.IntegerField(
-        label="2. Pokud si v kole vybraném k vyplacení vsadíte na správnou stranu, Vaše odměna bude:",
+        label="2. Pokud si v kole vybraném k vyplacení rozhodnete vsadit a sázka bude úspěšná, Vaše odměna bude:",
         choices=[
-            [1, "CORRECT"],
-            [0, "INCORRECT_1"],
-            [0, "INCORRECT_2"],
-            [0, "INCORRECT_3"],
+            [1, "OPTION_1"],
+            [2, "OPTION_2"],
+            [3, "OPTION_3"],
+            [4, "OPTION_4"],
         ],
-        widget=widgets.RadioSelect
+        widget=widgets.RadioSelect,
     )
 
-    cq_recency = models.BooleanField(
-        label="3. Který symbol je nejnovější (poslední)?",
+    cq_toss = models.IntegerField(
+        label="3. Sázka je úspěšná, pokud Vámi vybraná strana odpovídá straně, která:",
         choices=[
-            [True, "Vpravo"],
-            [False, "Vlevo"],
+            [1, "OPTION_1"],
+            [2, "OPTION_2"],
+            [3, "OPTION_3"],
         ],
-        widget=widgets.RadioSelect
+        widget=widgets.RadioSelect,
     )
+
+    cq_payment = models.IntegerField(
+        label="4. Odměna z této části studie bude určena na základě rozhodnutí:",
+        choices=[
+            [1, "OPTION_1"],
+            [2, "OPTION_2"],
+            [3, "OPTION_3"],
+        ],
+        widget=widgets.RadioSelect,
+    )
+
+    cq_recency = models.IntegerField(
+        label="5. Který symbol (H = Hlava, O = Orel) je v zobrazené šestici hodů nejnovější (poslední)?",
+        choices=[
+            [1, "OPTION_1"],
+            [2, "OPTION_2"],
+        ],
+        widget=widgets.RadioSelect,
+    )
+
+    
+

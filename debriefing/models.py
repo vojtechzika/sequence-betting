@@ -17,23 +17,23 @@ class Group(BaseGroup):
 
 class Player(BasePlayer):
     used_strategy = models.StringField(
-        label="Použil(a) jste nějakou strategii při rozhodování?",
+        label="1. Použil(a) jste při rozhodování o sázení nějakou strategii?",
         choices=[['yes', 'Ano'], ['no', 'Ne']],
         widget=widgets.RadioSelect,
     )
     strategy_text = models.LongStringField(
-        label="Pokud ano, popište ji stručně:",
+        label="2. Pokud ano, stručně ji popište:",
         blank=True,
     )
     belief_sequences = models.LongStringField(
-        label="Měl(a) jste pocit, že některé sekvence jsou pravděpodobnější než jiné? Proč?",
+        label="3. Měl(a) jste pocit, že některé sekvence jsou pravděpodobnější než jiné? Proč?",
         blank=True,
     )
     confidence = models.IntegerField(
-        label="Jak jste si byl(a) jistý(á) svými rozhodnutími? (0–10)",
+        label="4. Jak jste si byl(a) jistý(á) svými rozhodnutími? (0–10)",
         min=0, max=10,
     )
     comment = models.LongStringField(
-        label="Další komentář (volitelné):",
+        label="5. Další komentář (volitelné):",
         blank=True,
     )

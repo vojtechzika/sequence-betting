@@ -5,40 +5,112 @@
 
 {% block content %}
 
- <p>
+<style>
+  .cq-wrap { max-width: 100%; margin: 0 auto; }
+  .cq-lead { margin: 10px 0 18px; }
+  .cq-toolbar { display: flex; gap: 10px; align-items: center; margin: 10px 0 18px; flex-wrap: wrap; }
+  .cq-instr { display: none; margin-top: 12px; padding: 14px 16px; border: 1px solid #e3e3e3; border-radius: 10px; background: #fafafa; }
+  .cq-card { border: 1px solid #e6e6e6; border-radius: 12px; padding: 14px 16px; margin: 14px 0; background: #fff; }
+  .cq-q { font-weight: 600; margin-bottom: 8px; }
+  .cq-err { margin: 6px 0 8px; }
+  .cq-opt { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; }
+  .cq-opt input { margin-top: 3px; }
+  .cq-footer { margin-top: 18px; display: flex; justify-content: flex-end; }
+</style>
+
+<div class="cq-wrap">
+
+<p class="cq-lead">
   Na následujících otázkách si můžete ověřit, zda rozumíte klíčovým instrukcím této části studie.
+  Pokud si nejste jisti, můžete si instrukce kdykoli znovu zobrazit.
 </p>
 
-  <label  style="font-weight:600;">{{ form.cq_keep_endowment.label }}</label>
-{% for value, label in cq_keep_endowment_choices %}
-  <div>
-    <label>
-      <input type="radio" name="cq_keep_endowment" value="{{ value }}" required>
-      {{ label }}
-    </label>
+ <div style="margin: 6px 0 26px;">
+  <button id="btnInstr"
+          type="button"
+          class="otree-btn otree-btn-link"
+          onclick="
+            const el = document.getElementById('instr');
+            const btn = document.getElementById('btnInstr');
+            const open = (el.style.display === 'none' || el.style.display === '');
+            el.style.display = open ? 'block' : 'none';
+            btn.textContent = open ? 'Skrýt instrukce' : 'Zobrazit instrukce';
+          ">
+    Zobrazit instrukce
+  </button>
+</div>
+
+<div id="instr"
+     style="display:none; margin-bottom:16px; padding:14px 16px;
+            border-left:4px solid #bbb; background:#fafafa;">
+  {% include "sequences/_Instructions.html" %}
+</div>
+
+  <div id="instr" class="cq-instr">
+    {% include "sequences/_Instructions.html" %}
   </div>
-{% endfor %}
 
-  <hr>
-
-  <div>
-    <label style="font-weight:600;">{{ form.cq_multiplier.label }}</label>
-    {% for value, label in cq_multiplier_choices %}
-      <div style="margin-top:6px;">
-        <label>
-          <input type="radio" name="cq_multiplier" value="{{ value }}" required>
-          {{ label }}
-        </label>
-      </div>
+  <div class="cq-card">
+    <div class="cq-q">{{ form.cq_keep_endowment.label|safe }}</div>
+    <div class="cq-err">{{ formfield_errors 'cq_keep_endowment' }}</div>
+    {% for value, label in cq_keep_endowment_choices %}
+      <label class="cq-opt">
+        <input type="radio" name="cq_keep_endowment" value="{{ value }}" required>
+        <span>{{ label }}</span>
+      </label>
     {% endfor %}
   </div>
 
-  <hr>
+  <div class="cq-card">
+    <div class="cq-q">{{ form.cq_multiplier.label|safe }}</div>
+    <div class="cq-err">{{ formfield_errors 'cq_multiplier' }}</div>
+    {% for value, label in cq_multiplier_choices %}
+      <label class="cq-opt">
+        <input type="radio" name="cq_multiplier" value="{{ value }}" required>
+        <span>{{ label }}</span>
+      </label>
+    {% endfor %}
+  </div>
 
-  {{ formfield 'cq_recency' }}
+  <div class="cq-card">
+    <div class="cq-q">{{ form.cq_toss.label|safe }}</div>
+    <div class="cq-err">{{ formfield_errors 'cq_toss' }}</div>
+    {% for value, label in cq_toss_choices %}
+      <label class="cq-opt">
+        <input type="radio" name="cq_toss" value="{{ value }}" required>
+        <span>{{ label }}</span>
+      </label>
+    {% endfor %}
+  </div>
 
-  <div style="margin-top:20px; text-align:right;">
+  <div class="cq-card">
+    <div class="cq-q">{{ form.cq_payment.label|safe }}</div>
+    <div class="cq-err">{{ formfield_errors 'cq_payment' }}</div>
+    {% for value, label in cq_payment_choices %}
+      <label class="cq-opt">
+        <input type="radio" name="cq_payment" value="{{ value }}" required>
+        <span>{{ label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+
+  <div class="cq-card">
+    <div class="cq-q">{{ form.cq_recency.label|safe }}</div>
+    <div class="cq-err">{{ formfield_errors 'cq_recency' }}</div>
+    {% for value, label in cq_recency_choices %}
+      <label class="cq-opt">
+        <input type="radio" name="cq_recency" value="{{ value }}" required>
+        <span>{{ label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+
+  
+
+  <div class="cq-footer">
     <button class="otree-btn otree-btn-primary otree-btn-next">Pokračovat</button>
   </div>
+
+</div>
 
 {% endblock %}
