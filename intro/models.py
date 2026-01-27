@@ -16,6 +16,9 @@ class Subsession(BaseSubsession):
         weights = cfg.get('treatment_weights', {'m25': 0.5, 'm19': 0.5})
         multipliers = cfg.get('treatment_multipliers', {'m25': 2.5, 'm19': 1.9})
 
+        assert set(weights) == set(multipliers), \
+            "Treatment keys in treatment_weights and treatment_multipliers must match"
+
         # store session-level version once (SESSION_FIELDS)
         self.session.experiment_version = cfg.get('experiment_version')
 
