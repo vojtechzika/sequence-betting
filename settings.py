@@ -1,5 +1,7 @@
 from os import environ
 
+DEBUG = False
+
 SESSION_CONFIGS = [
     dict(
         name='sb26',
@@ -21,6 +23,8 @@ SESSION_CONFIGS = [
         experiment_version = 'sb26_v1_preregistered',
     ),
 ]
+
+
 
 # if you set a property in SESSION_CONFIG_DEFAULTS, it will be inherited by all configs
 # in SESSION_CONFIGS, except those that explicitly override it.

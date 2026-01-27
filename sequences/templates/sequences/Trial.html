@@ -14,129 +14,233 @@
 </script>
 
 <style>
-  html, body { height:100%; background:#fff; }
+html, body {
 
-  .meta {
+}
+
+
+
+/* --- Pin PROGRESS to top --- */
+.row-top {
+  position: fixed;
+  top: 3vh;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 200;
+}
+
+/* --- Pin SEQUENCE to center --- */
+.row-mid {
+  position: fixed;
+  top: 31%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 100;
+}
+
+
+/* --- Pin DECISION CARD to bottom; expand upward --- */
+.row-bot {
+  position: fixed;
+  left: 0;
+  bottom: 3vh;               /* breathing room */
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 300;
+}
+
+/* -------------------------------
+   PROGRESS BAR
+-------------------------------- */
+.progressbar {
+  width: min(1100px, calc(100% - 40px));
+  display: flex;
+  justify-content: center;
+  margin: 0;
+}
+
+.progressbar .sq{
+  display:inline-block;
+  background:#fff;
+  border:1px solid #000;
+  box-sizing:border-box;
+  vertical-align:middle;
+}
+.progressbar .sq.done{ background:#999; }
+.progressbar .sq.cur { background:lightgreen; }
+
+/* -------------------------------
+   SEQUENCE DISPLAY
+-------------------------------- */
+.sequence-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin: 0;
+  width: 100%;
+}
+
+.sym {
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-weight: 100;
+  font-size: 110px;
+  line-height: 140px;
+  width: 140px;
+  height: 140px;
+  text-align: center;
+  display: inline-block;
+  border: 2px solid #000;
+  box-sizing: border-box;
+}
+
+/* -------------------------------
+   DECISION CARD
+-------------------------------- */
+.decision-card {
+  width: 100%;
+  max-width: 720px;
+  padding: 18px 20px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+}
+
+/* -------------------------------
+   STRATEGY TEXT
+-------------------------------- */
+.strategy {
+  margin: 12px auto 32px auto;
+  max-width: 600px;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* -------------------------------
+   CHOICE BUTTONS
+-------------------------------- */
+.choices {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.choices .otree-btn {
+  min-width: 100px;
+  min-height: 100px;
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.choices .otree-btn.active {
+  background-color: #007bff;
+  color: #fff;
+  border: 2px solid #0056b3;
+}
+
+/* -------------------------------
+   STAKE CONTROLS
+-------------------------------- */
+.stake {
+  margin-top: 22px;
+}
+
+.range {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.stakeVal {
+  width: 100%;
+  text-align: center;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.meta {
+  margin-top: 20px;
+  color: #555;
+  font-size: 14px;
+  text-align: center;
+  min-height: 3.5em;
   white-space: pre-line;
 }
 
-  /* PROGRESS BAR (unchanged offsets) */
-  .progressbar {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    margin-top: -50px; 
-
-  }
-  .progressbar .sq {
-    display: inline-block;
-    background: #fff;
-    border: 1px solid #000;
-    box-sizing: border-box;
-    vertical-align: middle;
-  }
-  .progressbar .sq.done { background: #999; }
-  .progressbar .sq.cur  { background: lightgreen; }
-
-  /* SEQUENCE (unchanged sizes/margins) */
-  .sequence-wrap {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    align-items: center;
-    margin: 60px auto 0 auto; /* your original */
-    width: 100%;
-  }
-  .sym {
-    font-family: Arial, "Helvetica Neue", sans-serif;
-    font-weight: 100;
-    font-size: 110px;
-    line-height: 140px;
-    width: 140px;
-    height: 140px;
-    text-align: center;
-    display: inline-block;
-    border: 2px solid #000;
-    box-sizing: border-box;
-    margin: 0;
-  }
-
-  /* DECISION CARD (unchanged margin) */
-  .decision-card{
-    width: 100%;
-    max-width: 720px;
-    margin: 180px auto 0 auto; /* your original */
-    padding: 18px 20px;
-    border: 1px solid #e5e5e5;
-    border-radius: 10px;
-    background: #fafafa;
-    box-shadow: 0 2px 8px rgba(0,0,0,.04);
-  }
-
-  /* Practice panel (colors only cosmetic) */
-  #practice {
-    width: 100%;
-    padding: 20px;
-    margin-bottom: 100px;
-    margin-top: -50px;
-    border: 2px solid #a94442;
-    background-color: #f2dede;
-    border-radius: 6px;
-    display: block;
-
-  }
-
-  .choices{
-    display:flex;
-    gap: 20px;
-    flex-wrap: wrap;
-    justify-content:center;
-    align-items:center;
-    margin-bottom: 10px;
-  }
-  .choices .otree-btn{
-    min-width:100px;
-    min-height:100px;
-    font-size:18px;
-    line-height:1.1;
-  }
-  .choices .otree-btn.active{
-    background-color:#007bff; color:#fff; border:2px solid #0056b3;
-  }
-
-  .stake{ margin-top:22px; }
-  .is-hidden{ visibility:hidden; opacity:0; pointer-events:none; }
-
-  .range{ width:100%; margin-top:14px; }
-  .stakeVal{ width:100%; text-align:center; font-weight:600; margin-top:6px; }
-  .meta{ margin-top:20px; color:#555; font-size:14px; text-align:center; min-height:1.4em; }
-
-  /* Hide slider thumb until user interacts */
-  input[type=range][data-empty="true"]::-webkit-slider-thumb { visibility:hidden; }
-  input[type=range][data-empty="true"]::-moz-range-thumb { visibility:hidden; }
-  input[type=range][data-empty="true"]{ background:#ddd; }
-  input[type=range][data-empty="true"]::-webkit-slider-runnable-track{ background:#ddd; }
-
-  .footer{ margin-top:18px; display:flex; justify-content:center; }
-  .footer .otree-btn[disabled]{ opacity:.5; cursor:not-allowed; }
-
-  .intro {
-    margin: 160px auto 0 auto;   /* top margin + centered horizontally */
-    max-width: 800px;           /* keeps text comfortably readable */
-    text-align: center;         /* center-aligned text */
-    font-size: 1.3em;           /* slightly larger than default */
-    line-height: 1.5;           /* improves readability */
-    color: #444;                /* neutral, non-distracting */
+/* -------------------------------
+   FOOTER
+-------------------------------- */
+.footer {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
 }
 
-.strategy {
-    margin: 20px auto 30px auto;   /* top margin + centered horizontally */
-    max-width: 600px;           /* keeps text comfortably readable */
-    text-align: center;         /* center-aligned text */
+.footer .otree-btn[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
 }
+
+/* PRACTICE PANEL — LEFT SIDEBAR */
+
+#practice {
+  width: 100%;
+  padding: 18px 18px 6px 18px;
+  margin-top: 85px;
+
+  border: 1px solid #e0c97a;
+  background-color: #fff6d8;
+  border-radius: 8px;
+
+  color: #4a3b00;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* -------------------------------
+   HIDDEN STATES
+-------------------------------- */
+.is-hidden {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Hide slider thumb until interaction */
+input[type=range][data-empty="true"]::-webkit-slider-thumb { visibility: hidden; }
+input[type=range][data-empty="true"]::-moz-range-thumb { visibility: hidden; }
+input[type=range][data-empty="true"] { background: #ddd; }
+input[type=range][data-empty="true"]::-webkit-slider-runnable-track { background: #ddd; }
+
 </style>
 
-{% if is_practice %}
+ 
+
+ 
+
+<div class="trial-wrapper">
+
+
+  <div class="row-top">
+
+      <div id="progress" class="progressbar"
+           data-t="{{ t }}"
+           data-n="{{ n_rounds }}"
+           data-b="{{ n_blocks }}">
+      </div>
+
+  </div>
+
+  {% if is_practice %}           
     <div id="practice">
       <ul>
         <li>
@@ -144,7 +248,7 @@
         </li>
 
         <li>
-          Ukazatel postupu zobrazuje, kolik kol již máte za sebou (šedá), v jakém kole a bloku se nacházíte (zelená) a kolik kol ještě zbývá (bílá).
+          Ukazatel postupu nahoře zobrazuje, kolik kol máte za sebou (šedá), kolik jich zbývá (bílá) a v jakém kole a bloku se nacházíte (zelená).
         </li>
 
         <li>
@@ -152,72 +256,69 @@
         </li>
 
         <li>
-          V šedém boxu zvolíte své rozhodnutí pro následující hod mincí. 
-          Po kliknutí na Hlavu nebo Orla se zobrazí posuvník pro určení výše sázky; po kliknutí na Nesázet pokračujete bez sázky do dalšího kola.
+          V šedém boxu zvolíte své rozhodnutí pro následující hod mincí. Po kliknutí na Hlavu nebo Orla se zobrazí posuvník pro určení výše sázky; po kliknutí na Nesázet pokračujete bez sázky do dalšího kola.
         </li>
       </ul>      
     </div>
-  {% endif %}
+  {% endif %}  
 
-<div id="progress" class="progressbar"
-     data-t="{{ t }}"
-     data-n="{{ n_rounds }}"
-     data-b="{{ n_blocks }}">
-</div>
+  <div class="row-mid">
 
-<div class="intro">
-  <b>
-    Toto je jedna z možných historií předchozích hodů mincí{% if is_practice %}{% else %} (H = Hlava, O = Orel){% endif %}.
-  </b><br>
-  Nejstarší hod je zobrazen vlevo, nejnovější hod vpravo.
-</div>
+    <div class="sequence-wrap" id="seq" data-seq="{{ seq }}"></div>
 
-<div class="sequence-wrap" id="seq" data-seq="{{ seq }}"></div>
-
-<div class="decision-card">
-
-
-<div class="strategy">
-  Vaše rozhodnutí pro následující hod mincí:
-</div>
-
-  <div class="choices">
-    {% if outcomes_left %}
-      <button type="button" class="otree-btn otree-btn-primary" data-side="{{ outcomes_left }}">
-        {{ nickname_left }}
-      </button>
-    {% endif %}
-    {% if outcomes_right %}
-      <button type="button" class="otree-btn otree-btn-primary" data-side="{{ outcomes_right }}">
-        {{ nickname_right }}
-      </button>
-    {% endif %}
-    <button type="button" class="otree-btn" data-side="NB">Nesázet</button>
   </div>
 
-  <div class="stake" id="stakeWrap">
-    <div id="stakeControls" class="is-hidden">
-      <div style="text-align:center;">Kliknutím na posuvník zvolte výši sázky (1—{{ endowment }} ECU).</div>
-      <input type="range" class="range" id="stake" min="1" max="{{ endowment }}" step="1" value="" data-empty="true">
-      <div class="stakeVal">Sázka: <span id="stakeVal">–</span></div>
+
+  <div class="row-bot">
+
+    <div class="decision-card">
+
+
+    <div class="strategy">
+      Vaše rozhodnutí pro hod mincí následující po zobrazené sekvenci:
     </div>
-    <div class="meta" id="stakeInfo"></div>
+
+      <div class="choices">
+        {% if outcomes_left %}
+          <button type="button" class="otree-btn otree-btn-primary" data-side="{{ outcomes_left }}">
+            {{ nickname_left }}
+          </button>
+        {% endif %}
+        {% if outcomes_right %}
+          <button type="button" class="otree-btn otree-btn-primary" data-side="{{ outcomes_right }}">
+            {{ nickname_right }}
+          </button>
+        {% endif %}
+        <button type="button" class="otree-btn" data-side="NB">Nesázet</button>
+      </div>
+
+      <div class="stake" id="stakeWrap">
+        <div id="stakeControls" class="is-hidden">
+          <div style="text-align:center;">Kliknutím na posuvník zvolte výši sázky (1—{{ endowment }} ECU).</div>
+          <input type="range" class="range" id="stake" min="1" max="{{ endowment }}" step="1" value="" data-empty="true">
+          <div class="stakeVal">Sázka: <span id="stakeVal">–</span></div>
+        </div>
+        <div class="meta" id="stakeInfo"></div>
+      </div>
+
+      <!-- hidden fields -->
+      <input type="hidden" name="side" id="id_side">
+      <input type="hidden" name="stake" id="id_stake">
+      <input type="hidden" name="screen_time_ms" id="id_screen_time_ms">
+
+      <!-- AOI (practice only; safe in all rounds) -->
+      <input type="hidden" name="aoi_boxes_px"  id="id_aoi_boxes_px">
+      <input type="hidden" name="viewport_w_px" id="id_viewport_w_px">
+      <input type="hidden" name="viewport_h_px" id="id_viewport_h_px">
+      <input type="hidden" name="dpr"           id="id_dpr">
+
+      <div class="footer">
+        <button type="submit" class="otree-btn otree-btn-next" id="nextBtn" disabled>Pokračovat</button>
+      </div>
+    </div>
+
   </div>
 
-  <!-- hidden fields -->
-  <input type="hidden" name="side" id="id_side">
-  <input type="hidden" name="stake" id="id_stake">
-  <input type="hidden" name="screen_time_ms" id="id_screen_time_ms">
-
-  <!-- AOI (practice only; safe in all rounds) -->
-  <input type="hidden" name="aoi_boxes_px"  id="id_aoi_boxes_px">
-  <input type="hidden" name="viewport_w_px" id="id_viewport_w_px">
-  <input type="hidden" name="viewport_h_px" id="id_viewport_h_px">
-  <input type="hidden" name="dpr"           id="id_dpr">
-
-  <div class="footer">
-    <button type="submit" class="otree-btn otree-btn-next" id="nextBtn" disabled>Pokračovat</button>
-  </div>
 </div>
 
 <!-- PROGRESS BAR JS (unchanged logic) -->

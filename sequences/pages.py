@@ -121,9 +121,9 @@ class Comprehension(Page):
                 (2, "Vlevo"),
             ],
             cq_toss_choices=[
-                (1, "je v zobrazené šestici hodů častější "),
-                (2, "padla v posledním ze zobrazených šesti hodů"),
-                (3, "padne v hodu spravedlivou mincí, který následuje po zobrazené šestici hodů"),
+                (1, "je v zobrazené sekvenci nejčastější"),
+                (2, "je v zobrazené sekvenci poslední"),
+                (3, "padne v hodu spravedlivou mincí, který by následoval po zobrazené sekvenci"),
             ],
         )
 

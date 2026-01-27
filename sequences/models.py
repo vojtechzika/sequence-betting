@@ -159,7 +159,7 @@ class Player(BasePlayer):
     )
 
     cq_recency = models.IntegerField(
-        label="5. Který symbol (H = Hlava, O = Orel) je v zobrazené šestici hodů nejnovější (poslední)?",
+        label="5. Který symbol (H = Hlava, O = Orel) je v zobrazené sekvenci nejnovější (poslední)?",
         choices=[
             [1, "OPTION_1"],
             [2, "OPTION_2"],
