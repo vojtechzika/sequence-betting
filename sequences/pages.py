@@ -268,6 +268,8 @@ class Trial(Page):
 
 
 class Break(Page):
+    timer_text = ''  # hides oTree's yellow countdown box
+    
     def is_displayed(self):
         if C.BREAK_SECONDS <= 0 or self.round_number >= C.NUM_ROUNDS:
             return False

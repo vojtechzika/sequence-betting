@@ -4,13 +4,38 @@
 {% block title %}{% endblock %}
 
 {% block content %}
-<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;">
+<style>
+  /* kill oTree timer */
+  .otree-timer { display: none !important; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* hard absolute centering */
+  .center-box {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 100%;
+    max-width: 600px;
+  }
+</style>
+
+<div class="center-box">
   <h2>Dokončili jste {{ blk }}. z celkem {{ n_blocks }} bloků.</h2>
   <p>Za <span id="count">{{ break_seconds }}</span> sekund budete pokračovat.</p>
 
-  <!-- hidden continue button for fallback -->
-  <button class="otree-btn otree-btn-next" id="nextBtn" style="display:none;">Pokračovat</button>
+  <!-- fallback -->
+  <button class="otree-btn otree-btn-next" id="nextBtn" style="display:none;">
+    Pokračovat
+  </button>
 </div>
+
 
 <script>
 (function () {
