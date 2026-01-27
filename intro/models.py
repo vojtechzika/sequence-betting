@@ -16,6 +16,9 @@ class Subsession(BaseSubsession):
         weights = cfg.get('treatment_weights', {'m25': 0.5, 'm19': 0.5})
         multipliers = cfg.get('treatment_multipliers', {'m25': 2.5, 'm19': 1.9})
 
+        # store session-level version once (SESSION_FIELDS)
+        self.session.experiment_version = cfg.get('experiment_version')
+
         if 'treat_counts' not in self.session.vars:
             self.session.vars['treat_counts'] = {k: 0 for k in weights.keys()}
             self.session.vars['treat_total_assigned'] = 0
@@ -23,7 +26,8 @@ class Subsession(BaseSubsession):
         counts = self.session.vars['treat_counts']
 
         for pl in self.get_players():
-            if 'treatment' in pl.participant.vars:
+            # if already assigned, skip
+            if pl.participant.vars.get('treatment') is not None:
                 continue
 
             total = self.session.vars['treat_total_assigned']
@@ -38,8 +42,16 @@ class Subsession(BaseSubsession):
                 candidates = [t for t, g in gaps.items() if g == max_gap]
                 treat = random.choices(candidates, weights=[weights[c] for c in candidates], k=1)[0]
 
+            m = multipliers[treat]
+
+            # keep existing participant.vars (used in templates)
             pl.participant.vars['treatment'] = treat
-            pl.participant.vars['m'] = multipliers[treat]
+            pl.participant.vars['m'] = m
+
+            # write to Participant fields (PARTICIPANT_FIELDS)
+            pl.participant.treatment = treat
+            pl.participant.multiplier = m
+            pl.participant.experiment_version = cfg.get('experiment_version')
 
             counts[treat] += 1
             self.session.vars['treat_total_assigned'] += 1

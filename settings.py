@@ -18,7 +18,7 @@ SESSION_CONFIGS = [
         treatment_weights={'m25': 0.75, 'm19': 0.25},      
         treatment_multipliers={'m25': 2.5, 'm19': 1.9},
 
-
+        experiment_version = 'sb26_v1_preregistered',
     ),
 ]
 
@@ -33,8 +33,8 @@ SESSION_CONFIG_DEFAULTS = dict(
     doc=""
 )
 
-PARTICIPANT_FIELDS = []
-SESSION_FIELDS = []
+PARTICIPANT_FIELDS = ['treatment', 'multiplier', 'experiment_version']
+SESSION_FIELDS = ['experiment_version']
 
 LANGUAGE_CODE = 'cs'
 
@@ -42,9 +42,10 @@ LANGUAGE_CODE = 'cs'
 USE_POINTS = True
 POINTS_CUSTOM_NAME = 'ECU'
 
+
 # Real payment currency (only for final payout)
 REAL_WORLD_CURRENCY_CODE = 'CZK'
-REAL_WORLD_CURRENCY_PER_POINT = 1
+#REAL_WORLD_CURRENCY_PER_POINT = 1
 
 ADMIN_USERNAME = 'admin'
 ADMIN_PASSWORD = environ.get('OTREE_ADMIN_PASSWORD')
