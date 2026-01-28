@@ -259,7 +259,7 @@ class Trial(Page):
         else:
             p.win = (p.side == realized)
             if p.win:
-                earnings = C.ENDOWMENT + m * p.stake
+                earnings = (C.ENDOWMENT - p.stake) + m * p.stake
             else:
                 earnings = C.ENDOWMENT - p.stake
 
