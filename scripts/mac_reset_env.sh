@@ -1,9 +1,8 @@
+#!/usr/bin/env bash
 # Local development helper.
 # Recreates venv and starts oTree devserver.
 # Do NOT run on production or lab machines unless intended.
 
-
-#!/usr/bin/env bash
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
