@@ -79,3 +79,21 @@ __temp*/
 .ruff_cache/
 .cursorignore
 .cursorindexingignore
+
+
+# --- R / RStudio ---
+.Rproj.user/
+.Rhistory
+.RData
+analysis/.Rproj.user/
+analysis/.Rhistory
+analysis/.RData
+
+# --- Data (never commit raw human subject data) ---
+data/raw/
+data/clean/
+
+# --- Generated analysis outputs ---
+analysis/output/
+analysis/figures/
+analysis/models/
