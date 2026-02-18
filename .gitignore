@@ -89,6 +89,9 @@ analysis/.Rproj.user/
 analysis/.Rhistory
 analysis/.RData
 
+# Stan compiled models
+analysis/stan/*.rds
+
 # --- Data (never commit raw human subject data) ---
 data/raw/
 data/clean/
