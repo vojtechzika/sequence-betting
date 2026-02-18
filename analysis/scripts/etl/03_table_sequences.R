@@ -1,5 +1,5 @@
 # scripts/03_table_sequences.R
-source("scripts/00_setup.R")
+source(here::here("scripts", "00_setup.R"))
 
 make_sequences_table <- function(dataset = "pilot") {
   
@@ -7,22 +7,46 @@ make_sequences_table <- function(dataset = "pilot") {
   stopifnot(file.exists(infile))
   dt <- data.table::fread(infile, encoding = "UTF-8")
   
-  # ---- ONLY LIST THAT DEFINES WHAT WE KEEP (per-sequence variables) ----
+  # All sequence-level variables available in raw oTree export.
+  # Active variables define the schema of sequences.csv.
+  # Commented variables are intentionally excluded from the long table.
   vars <- c(
-    "trial_id",
-    "seq",
-    "uid",
-    "block",
-    "pos_in_block",
-    "m_used",
-    #"treatment",
-    "realized",
-    "win",
-    "round_earnings",
-    "side",
-    "stake",
-    "screen_time_ms",
-    "button_order"
+    
+    # --- Structural / oTree meta ---
+    # "id_in_group",     # oTree internal group position (not analytically relevant in 1-player task)
+    # "role",            # oTree role label (unused in single-role design)
+    # "payoff",          # cumulative or round payoff assigned by oTree (redundant if round_earnings kept)
+    # "t",               # internal trial counter (may duplicate trial_id or pos_in_block)
+    
+    # --- Core sequence task variables ---
+    "trial_id",          # unique trial identifier within participant
+    "seq",               # 6-toss sequence shown (e.g., HHTOHO)
+    "uid",               # unique sequence identifier (stable across participants)
+    "block",             # block number
+    "pos_in_block",      # position within block
+    "m_used",            # multiplier used in this trial
+    # "treatment",       # treatment condition (sequence-level; constant per participant)
+    "realized",          # actual realized outcome (H or O)
+    "win",               # indicator whether participant won (1/0 or TRUE/FALSE)
+    "round_earnings",    # earnings from this trial
+    "side",              # side (H or O) a participant chose to bet on
+    "stake",             # amount wagered
+    "screen_time_ms",    # decision screen time in milliseconds
+    "button_order"      # randomized order of response buttons (HO / OH)
+    
+    # --- Eye-tracking / device diagnostics ---
+    # "aoi_boxes_px",    # AOI bounding boxes (pixel coordinates)
+    # "viewport_w_px",   # browser viewport width (px)
+    # "viewport_h_px",   # browser viewport height (px)
+    # "dpr",             # device pixel ratio
+    
+    # --- Comprehension checks ---
+    # --- Only first sequence has comprehension checks, so these will be mostly NA in the long format, plus participant MUST complete checks to continue ---
+    # "cq_keep_endowment",  # comprehension: keep endowment question
+    # "cq_multiplier",      # comprehension: multiplier question
+    # "cq_toss",            # comprehension: coin toss probability question
+    # "cq_payment",         # comprehension: payment rule question
+    # "cq_recency"          # comprehension: recency understanding question
   )
   
   # ---- Identify sequence indices present (expect 1..64) ----

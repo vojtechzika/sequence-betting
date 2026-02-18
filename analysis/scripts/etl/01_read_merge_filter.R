@@ -1,4 +1,4 @@
-source("scripts/00_setup.R")
+source(here::here("scripts", "00_setup.R"))
 
 
 run_read_merge_filter <- function(dataset) {
