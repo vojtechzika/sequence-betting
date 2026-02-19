@@ -1,4 +1,6 @@
-# --- Python / packaging ---
+# =====================================================
+# Python / packaging
+# =====================================================
 __pycache__/
 *.py[codz]
 *$py.class
@@ -46,16 +48,23 @@ cover/
 *.mo
 *.pot
 
-# --- Logs / local Django stuff ---
+
+# =====================================================
+# Logs / OS / editor
+# =====================================================
 *.log
-local_settings.py
+.DS_Store
+*~
 
-# --- DB / sqlite ---
-db.sqlite3
-db.sqlite3-journal
-*.sqlite3
+.idea/
+.ruff_cache/
+.cursorignore
+.cursorindexingignore
 
-# --- Virtual environments ---
+
+# =====================================================
+# Virtual environments
+# =====================================================
 .env
 .envrc
 .venv
@@ -65,23 +74,28 @@ ENV/
 env.bak/
 venv.bak/
 
-# --- oTree / deployment artifacts ---
+
+# =====================================================
+# oTree / deployment artifacts
+# =====================================================
 *.otreezip
 staticfiles
 _static_root
 _bots*/
 __temp*/
 
-# --- OS / editor ---
-.DS_Store
-*~
-.idea/
-.ruff_cache/
-.cursorignore
-.cursorindexingignore
+
+# =====================================================
+# Databases
+# =====================================================
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
 
 
-# --- R / RStudio ---
+# =====================================================
+# R / RStudio
+# =====================================================
 .Rproj.user/
 .Rhistory
 .RData
@@ -89,19 +103,46 @@ analysis/.Rproj.user/
 analysis/.Rhistory
 analysis/.RData
 
-# Stan compiled models
+
+# =====================================================
+# Stan compiled objects (keep .stan source files)
+# =====================================================
 analysis/stan/*.rds
+analysis/stan/*.o
+analysis/stan/*.d
+analysis/stan/*.hpp
 
-# --- Data (never commit raw human subject data) ---
+
+# =====================================================
+# Data policy
+# =====================================================
+
+# Never commit raw human subject data
 data/raw/
-data/clean/
 
-# --- Generated analysis outputs ---
+# If you do NOT want clean subject-level data on GitHub,
+# uncomment the next line:
+# data/clean/
+
+
+# =====================================================
+# Regenerable analysis artifacts
+# =====================================================
+
+# Dataset-specific outputs
+data/clean/*/output/
+data/clean/*/figures/
+data/clean/*/models/
+
+# Legacy analysis folders (if used)
 analysis/output/
 analysis/figures/
 analysis/models/
 
+
+# =====================================================
 # LaTeX build artifacts
+# =====================================================
 *.aux
 *.log
 *.out

@@ -15,20 +15,25 @@ path_raw   <- file.path(path_repo, "data", "raw")
 path_clean <- file.path(path_repo, "data", "clean")
 path_clean_ds <- function(ds) file.path(path_clean, ds)
 
-# analysis-generated outputs (kept inside analysis/)
-path_out <- file.path(here::here(), "output")
-path_fig <- file.path(here::here(), "figures")
-path_mod <- file.path(here::here(), "models")
+# analysis artifacts (dataset-specific, kept under data/clean/<ds>/)
+path_out_ds <- function(ds) file.path(path_clean_ds(ds), "output")
+path_fig_ds <- function(ds) file.path(path_clean_ds(ds), "figures")
+path_mod_ds <- function(ds) file.path(path_clean_ds(ds), "models")
 
 # ---- Create dirs ----
 dir.create(path_raw, showWarnings = FALSE, recursive = TRUE)
 dir.create(path_clean, showWarnings = FALSE, recursive = TRUE)
+
 dir.create(path_clean_ds("pilot"), showWarnings = FALSE, recursive = TRUE)
 dir.create(path_clean_ds("main"),  showWarnings = FALSE, recursive = TRUE)
 
-dir.create(path_out, showWarnings = FALSE, recursive = TRUE)
-dir.create(path_fig, showWarnings = FALSE, recursive = TRUE)
-dir.create(path_mod, showWarnings = FALSE, recursive = TRUE)
+dir.create(path_out_ds("pilot"), showWarnings = FALSE, recursive = TRUE)
+dir.create(path_fig_ds("pilot"), showWarnings = FALSE, recursive = TRUE)
+dir.create(path_mod_ds("pilot"), showWarnings = FALSE, recursive = TRUE)
+
+dir.create(path_out_ds("main"), showWarnings = FALSE, recursive = TRUE)
+dir.create(path_fig_ds("main"), showWarnings = FALSE, recursive = TRUE)
+dir.create(path_mod_ds("main"), showWarnings = FALSE, recursive = TRUE)
 
 # ---- Helpers ----
 msg <- function(...) cat(..., "\n")

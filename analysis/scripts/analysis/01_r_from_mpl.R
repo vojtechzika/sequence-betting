@@ -39,6 +39,16 @@ r_from_mpl <- function(dataset = "pilot") {
   mpl <- data.table::fread(infile, encoding = "UTF-8")
   
   # =================================================
+  # OUTPUT FOLDERS (dataset-specific artifacts)
+  # =================================================
+  
+  out_dir <- path_out_ds(dataset)
+  mod_dir <- path_mod_ds(dataset)
+  
+  dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+  dir.create(mod_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # =================================================
   # DETECT CHOICE COLUMNS AND ENFORCE DESIGN
   # =================================================
   
@@ -174,7 +184,23 @@ r_from_mpl <- function(dataset = "pilot") {
   # OUTPUTS
   # =================================================
   
-  saveRDS(fit, file.path(path_clean_ds(dataset), "mpl_fit.rds"))
+  # Run log (lightweight; helps debugging / reproducibility)
+  logfile <- file.path(out_dir, "mpl_run_log.txt")
+  cat(
+    paste0(
+      "dataset=", dataset, "\n",
+      "timestamp=", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n",
+      "K=", K, "\n",
+      "iter=", iter_val, " warmup=", warmup_val, " chains=", chains_val, "\n",
+      "adapt_delta=", adapt_delta_val, " treedepth=", treedepth_val, "\n",
+      "seed=12345\n",
+      "A_high=", A_high, " A_low=", A_low, " B_high=", B_high, " B_low=", B_low, "\n"
+    ),
+    file = logfile
+  )
+  
+  # Stan artifacts (do not commit; live in models/)
+  saveRDS(fit, file.path(mod_dir, "mpl_fit.rds"))
   
   post <- rstan::extract(fit)
   
@@ -182,10 +208,10 @@ r_from_mpl <- function(dataset = "pilot") {
   r_draws <- post$r  # iterations x N
   saveRDS(
     list(pid = pid_levels, r_draws = r_draws),
-    file.path(path_clean_ds(dataset), "mpl_r_draws.rds")
+    file.path(mod_dir, "mpl_r_draws.rds")
   )
   
-  # Convenience summary table
+  # Convenience summary table (table can stay in data/clean/<ds>/)
   scored <- data.table::data.table(
     pid = pid_levels,
     r_mean   = apply(post$r, 2, mean),
@@ -214,6 +240,8 @@ r_from_mpl <- function(dataset = "pilot") {
       A_low  = A_low,
       B_high = B_high,
       B_low  = B_low
-    )
+    ),
+    out_dir = out_dir,
+    mod_dir = mod_dir
   ))
 }
