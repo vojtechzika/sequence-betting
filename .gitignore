@@ -122,7 +122,7 @@ data/raw/
 
 # If you do NOT want clean subject-level data on GitHub,
 # uncomment the next line:
-# data/clean/
+data/clean/
 
 
 # =====================================================

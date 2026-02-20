@@ -3,7 +3,8 @@ source(here::here("scripts", "00_setup.R"))
 
 library(data.table)
 
-descriptive_participants <- function(dataset = "pilot") {
+descriptive_participants <- function(dataset = "pilot",
+                                     treatment_filter = NULL) {
   
   # ----------------------------
   # Inputs
@@ -22,7 +23,7 @@ descriptive_participants <- function(dataset = "pilot") {
   stopifnot(all(c("pid", "r_mean", "inconsistent") %in% names(mpl)))
   stopifnot(all(c("pid", "lotr_score") %in% names(lotr)))
   
-  par[, sex := as.character(sex)]
+  par[, sex   := as.character(sex)]
   par[, treat := as.character(treat)]
   
   # Ensure inconsistent is 0/1 (handles TRUE/FALSE or 0/1)
@@ -36,29 +37,49 @@ descriptive_participants <- function(dataset = "pilot") {
   stopifnot(lotr[, uniqueN(pid)] == nrow(lotr))
   
   # Merge pid-level info for summaries
-  dt <- merge(par[, .(pid, age, sex, treat, payoff)], mpl[, .(pid, r_mean, inconsistent)], by = "pid", all.x = TRUE)
-  dt <- merge(dt, lotr[, .(pid, lotr_score)], by = "pid", all.x = TRUE)
+  dt <- merge(
+    par[, .(pid, age, sex, treat, payoff)],
+    mpl[, .(pid, r_mean, inconsistent)],
+    by = "pid", all.x = TRUE
+  )
+  dt <- merge(
+    dt,
+    lotr[, .(pid, lotr_score)],
+    by = "pid", all.x = TRUE
+  )
+  
+  # ----------------------------
+  # Treatment filter (if requested)
+  # ----------------------------
+  if (!is.null(treatment_filter)) {
+    treatment_filter <- as.character(treatment_filter)
+    available <- sort(unique(dt$treat))
+    bad <- setdiff(treatment_filter, available)
+    if (length(bad) > 0) {
+      stop("Unknown treat value(s): ", paste(bad, collapse = ", "),
+           "\nAvailable: ", paste(available, collapse = ", "))
+    }
+    dt <- dt[treat %in% treatment_filter]
+    if (nrow(dt) == 0) stop("No rows after filtering treat in {", paste(treatment_filter, collapse = ", "), "}.")
+  }
   
   # ----------------------------
   # Overall summary (ONE ROW)
   # ----------------------------
-   sex_levels <- c("F", "M", "other")
+  sex_levels <- c("F", "M", "other")
   
   out <- dt[, .(
     N = uniqueN(pid),
+    
+    age_mean = mean(age, na.rm = TRUE),
+    age_sd   = sd(age, na.rm = TRUE),
     
     sex_F_n     = sum(sex == "F", na.rm = TRUE),
     sex_M_n     = sum(sex == "M", na.rm = TRUE),
     sex_other_n = sum(sex == "other", na.rm = TRUE),
     
-    treat_m19_n = sum(treat == "m19", na.rm = TRUE),
-    treat_m25_n = sum(treat == "m25", na.rm = TRUE),
-    
     payoff_mean = mean(payoff, na.rm = TRUE),
     payoff_sd   = sd(payoff, na.rm = TRUE),
-    
-    age_mean = mean(age, na.rm = TRUE),
-    age_sd   = sd(age, na.rm = TRUE),
     
     lotr_mean = mean(lotr_score, na.rm = TRUE),
     lotr_sd   = sd(lotr_score, na.rm = TRUE),
@@ -68,8 +89,6 @@ descriptive_participants <- function(dataset = "pilot") {
     
     hl_inconsistent_n    = sum(inconsistent == 1L, na.rm = TRUE),
     hl_inconsistent_frac = mean(inconsistent == 1L, na.rm = TRUE)
-    
-    
   )]
   
   # ----------------------------
@@ -79,27 +98,31 @@ descriptive_participants <- function(dataset = "pilot") {
     r_mean_by_sex = mean(r_mean, na.rm = TRUE)
   ), by = sex]
   
-  # Put r_mean_by_sex into wide columns: r_mean_F, r_mean_M, r_mean_other
   r_wide <- dcast(r_by_sex, . ~ sex, value.var = "r_mean_by_sex")
   r_wide[, "." := NULL]
   
-  # Ensure columns exist even if a category is absent
   for (s in sex_levels) {
     if (!s %in% names(r_wide)) r_wide[, (s) := NA_real_]
   }
   
-  # Rename to requested style
-  setnames(r_wide,
-           old = sex_levels,
-           new = paste0("r_mean_", sex_levels))
+  setnames(
+    r_wide,
+    old = sex_levels,
+    new = paste0("r_mean_", sex_levels)
+  )
   
-  # Final single-row output
   out <- cbind(out, r_wide)
   
   # ----------------------------
   # Save
   # ----------------------------
-  outfile <- file.path(path_out_ds(dataset), paste0("descriptive_participants_", dataset, ".csv"))
+  suffix <- if (is.null(treatment_filter)) {
+    dataset
+  } else {
+    paste0(dataset, "_", paste(treatment_filter, collapse = "-"))
+  }
+  
+  outfile <- file.path(path_out_ds(dataset), paste0("descriptive_participants_", suffix, ".csv"))
   fwrite(out, outfile)
   
   msg("Participants descriptives saved:", outfile)
@@ -107,6 +130,7 @@ descriptive_participants <- function(dataset = "pilot") {
   invisible(out)
 }
 
-# Example:
-# participants_descriptives("pilot")
-# participants_descriptives("main")
+# Examples:
+# descriptive_participants("pilot")
+# descriptive_participants("pilot", treatment_filter = "m25")
+# descriptive_participants("pilot", treatment_filter = c("m19","m25"))
