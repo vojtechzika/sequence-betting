@@ -1,7 +1,7 @@
 run_cfg <- function() {
   list(
     dataset   = "pilot",
-    treatment = "both",  # "all" / "each" / "both" / c("m25","m19")
+    treatment = c("m25","m19"),  # A list of all treatments to run the analysis on. Add "pooled = TRUE" when calling the function from runners to include a pooled analysis across all treatments.
     seed      = 12345
   )
 }

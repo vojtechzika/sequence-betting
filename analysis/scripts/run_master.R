@@ -38,7 +38,7 @@ cfg$plan <- resolve_treatments(cfg$run$dataset, cfg$run$treatment) # must trail 
 run_indices(cfg)
 
 # Finally run analyses, which depend on the datasets and indices
-#run_analysis(cfg)
+run_analysis(cfg)
 
 
 msg("\nMASTER completed for dataset:", cfg$dataset, "\n")

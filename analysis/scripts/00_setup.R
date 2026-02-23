@@ -48,7 +48,7 @@ msg <- function(...) cat(..., "\n")
 #   "each" = run separately for each treatment present
 #   "both" = pooled + separately for each treatment present
 #   c("m25","m19") = specified subset (no pooled)
-resolve_treatments <- function(dataset, treatment) {
+resolve_treatments <- function(dataset, treatments) {
   
   f_merged <- file.path(path_clean_ds(dataset), "merged.csv")
   if (!file.exists(f_merged)) {
@@ -61,20 +61,11 @@ resolve_treatments <- function(dataset, treatment) {
   dt <- data.table::fread(f_merged, select = "participant.treatment")
   available <- sort(unique(as.character(dt$participant.treatment)))
   available <- available[!is.na(available) & nzchar(available)]
+  if (length(available) == 0) stop("No non-missing participant.treatment values in merged.csv.")
   
-  if (length(available) == 0) {
-    stop("No non-missing participant.treatment values found in merged.csv.")
-  }
-  
-  if (identical(treatment, "all"))  return(list(pooled = TRUE,  by = character(0), available = available))
-  if (identical(treatment, "both")) return(list(pooled = TRUE,  by = available,    available = available))
-  if (identical(treatment, "each")) return(list(pooled = FALSE, by = available,    available = available))
-  
-  if (!is.character(treatment)) {
-    stop("Invalid treatment specification. Use 'all', 'each', 'both', or a character vector like c('m25','m19').")
-  }
-  
-  missing <- setdiff(treatment, available)
+  treatments <- unique(as.character(treatments))
+  if (length(treatments) == 0) stop("run$treatment is empty.")
+  missing <- setdiff(treatments, available)
   if (length(missing) > 0) {
     stop(
       "Unknown treatment(s): ", paste(missing, collapse = ", "),
@@ -82,7 +73,7 @@ resolve_treatments <- function(dataset, treatment) {
     )
   }
   
-  list(pooled = FALSE, by = treatment, available = available)
+  list(by = treatments, available = available)
 }
 
 
