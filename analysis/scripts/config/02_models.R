@@ -16,6 +16,10 @@ model_cfg <- function() {
       rq3 = list(
         pilot = list(iter=1500, warmup=750, chains=2, adapt_delta=0.90, treedepth=12),
         main  = list(iter=4000, warmup=2000, chains=4, adapt_delta=0.99, treedepth=15)
+      ),
+      rq4 = list(
+        pilot = list(iter=1500, warmup=750, chains=2, adapt_delta=0.90, treedepth=12),
+        main  = list(iter=4000, warmup=2000, chains=4, adapt_delta=0.99, treedepth=15)
       )
     )
   )

@@ -30,6 +30,10 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "32_rq3_sequences.R"))
   source(here::here("scripts", "analysis", "33_rq3_participants.R"))
   
+  source(here::here("scripts", "analysis", "41_rq4_stan.R"))
+  source(here::here("scripts", "analysis", "42_rq4_sequences.R"))
+  source(here::here("scripts", "analysis", "43_rq4_participants.R"))
+  
   # ----------------------------
   # 00 Space: Descriptives
   # ----------------------------
@@ -56,6 +60,13 @@ run_analysis <- function(cfg) {
    rq3_stan(cfg)
    rq3_sequences(cfg)
    rq3_participants(cfg)
+   
+   # ----------------------------
+   # 40 Space: RQ3 (placeholder)
+   # ----------------------------
+   rq4_stan(cfg)
+   rq4_sequences(cfg)
+   rq4_participants(cfg)
    
   
   msg("\nAnalysis phase completed for:", ds, "\n")

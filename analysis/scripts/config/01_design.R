@@ -2,6 +2,11 @@ design_cfg <- function() {
   list(
     seq = list(
       endowment  = 100L,
+      side_labels = list(
+        heads = "H",
+        tails = "O",
+        nobet = "NB"
+      ),
       xmin       = 0.01,
       seq_n      = 64L,
       coin_prob  = 0.5,      # objective probability of win
