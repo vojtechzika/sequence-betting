@@ -188,8 +188,11 @@ rq2_stan <- function(cfg) {
     stopifnot(is.matrix(ast$a_star_draws))
     
     pid_astar <- as.character(ast$pid)
-    a_star_med <- apply(ast$a_star_draws, 2, median)
-    a_map <- data.table(pid = pid_astar, a_star = as.numeric(a_star_med))
+    
+    # Propagated (draw-integrated) a*_i for linear Δa: E[a*_i | data]
+    a_star_mean <- colMeans(ast$a_star_draws)
+    
+    a_map <- data.table(pid = pid_astar, a_star = as.numeric(a_star_mean))
     
     # ----------------------------
     # Filter to treatment + merge a*

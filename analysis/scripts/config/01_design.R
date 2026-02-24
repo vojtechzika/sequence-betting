@@ -17,7 +17,8 @@ design_cfg <- function() {
     rhos = list(
       rq1_rho = c(0.10, 0.08, 0.12),
       rq2_rho = c(0.05, 0.03, 0.08),
-      rq2_sd_floor = 2
+      rq2_sd_floor = 2,
+      rq3_rho = c(0.05, 0.03, 0.08)
     ),
     exclusion = list(
       rq2_min_bets = 3L,

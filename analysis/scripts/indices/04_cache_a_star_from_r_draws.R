@@ -17,7 +17,7 @@ cache_a_star_from_r_draws <- function(run, design, model) {
   hl <- readRDS(f_draws)
   stopifnot(is.list(hl), all(c("pid", "r_draws") %in% names(hl)))
   
-  pid_levels <- hl$pid
+  pid_levels <- as.character(hl$pid)
   r_draws <- hl$r_draws  # iters x N
   stopifnot(is.matrix(r_draws))
   
@@ -44,15 +44,16 @@ cache_a_star_from_r_draws <- function(run, design, model) {
   # stake grid (integer ECU)
   grid <- 0:e
   
+  # tolerance (constant; used in a_star_discrete)
+  r_tol <- get("R_TOL_DEFAULT", inherits = TRUE)
+  stopifnot(length(r_tol) == 1L, is.finite(r_tol), r_tol > 0)
+  
   # ----------------------------
   # Compute + save per treatment
   # ----------------------------
   out_files <- character(0)
   
   for (tr in tr_names) {
-    
-    r_tol <- get("R_TOL_DEFAULT", inherits = TRUE)
-    stopifnot(length(r_tol) == 1L, is.finite(r_tol), r_tol > 0)
     
     m <- design$seq$treatments[[tr]]
     if (!is.numeric(m) || length(m) != 1L || !is.finite(m) || m <= 1) {
@@ -86,7 +87,7 @@ cache_a_star_from_r_draws <- function(run, design, model) {
         endowment = e,
         coin_prob = p_win,
         xmin = xmin,
-        r_tol = R_TOL_DEFAULT
+        r_tol = r_tol
       )
     )
     
@@ -101,7 +102,7 @@ cache_a_star_from_r_draws <- function(run, design, model) {
 }
 
 # Example:
-# run   <- run_cfg()
+# run    <- run_cfg()
 # design <- design_cfg()
 # model  <- model_cfg()
 # cache_a_star_from_r_draws(run, design, model)
