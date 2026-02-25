@@ -6,18 +6,23 @@ library(rstan)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 
-stan_r_from_mpl <- function(run, design, model) {
+stan_r_from_mpl <- function(cfg) {
   
   stopifnot(
-    is.list(run), is.list(design), is.list(model),
-    "dataset" %in% names(run),
-    "seed" %in% names(run),
-    !is.null(design$mpl),
-    !is.null(model$stan$mpl)
+    is.list(cfg),
+    !is.null(cfg$run), !is.null(cfg$design), !is.null(cfg$model),
+    "dataset" %in% names(cfg$run),
+    "seed" %in% names(cfg$run),
+    !is.null(cfg$design$mpl),
+    !is.null(cfg$model$stan$mpl)
   )
   
-  ds   <- run$dataset
-  seed <- run$seed
+  run    <- cfg$run
+  design <- cfg$design
+  model  <- cfg$model
+  
+  ds   <- as.character(run$dataset)
+  seed <- as.integer(run$seed)
   
   # ----------------------------
   # Design parameters (from config)

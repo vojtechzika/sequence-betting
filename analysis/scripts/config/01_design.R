@@ -2,17 +2,21 @@ design_cfg <- function() {
   list(
     seq = list(
       endowment  = 100L,
-      side_labels = list(
-        heads = "H",
-        tails = "O",
-        nobet = "NB"
-      ),
       xmin       = 0.01,
       seq_n      = 64L,
       coin_prob  = 0.5,      # objective probability of win
       treatments = list(
         m25 = 2.5, m19 = 1.9
-        )
+        ),
+      side_labels = list(
+        heads = "H",
+        tails = "O",
+        nobet = "NB"
+      ),
+      anchor_labels = list(
+        pure_heads = "HHHHHH",
+        pure_tails = "OOOOOO"
+      )
     ),
     mpl = list(
       K = 10L,
@@ -23,7 +27,9 @@ design_cfg <- function() {
       rq1_rho = c(0.10, 0.08, 0.12),
       rq2_rho = c(0.05, 0.03, 0.08),
       rq2_sd_floor = 2,
-      rq3_rho = c(0.05, 0.03, 0.08)
+      rq3_rho = c(0.05, 0.03, 0.08),
+      ex1_eps = c(0.05, 0.03, 0.08),
+      ex1_delta = c(0.05, 0.03, 0.08) 
     ),
     exclusion = list(
       rq2_min_bets = 3L,

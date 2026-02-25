@@ -20,6 +20,10 @@ model_cfg <- function() {
       rq4 = list(
         pilot = list(iter=1500, warmup=750, chains=2, adapt_delta=0.90, treedepth=12),
         main  = list(iter=4000, warmup=2000, chains=4, adapt_delta=0.99, treedepth=15)
+      ),
+      ex1_2 = list(
+        pilot = list(iter=1500, warmup=750, chains=2, adapt_delta=0.99, treedepth=15),
+        main  = list(iter=4000, warmup=2000, chains=4, adapt_delta=0.99, treedepth=15)
       )
     )
   )

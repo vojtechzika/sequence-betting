@@ -1,9 +1,18 @@
-# scripts/analysis/03_build_master_sequences.R
+# scripts/analysis/09_build_master_sequences.R
 source(here::here("scripts", "00_setup.R"))
 
 library(data.table)
 
-build_master_sequences <- function(dataset = "pilot") {
+build_master_sequences <- function(cfg) {
+  
+  stopifnot(
+    is.list(cfg),
+    !is.null(cfg$run),
+    !is.null(cfg$run$dataset),
+    nzchar(as.character(cfg$run$dataset))
+  )
+  
+  dataset <- as.character(cfg$run$dataset)  # keep the same variable name used in the script
   
   # ----------------------------
   # Inputs
@@ -23,7 +32,7 @@ build_master_sequences <- function(dataset = "pilot") {
   stopifnot("pid" %in% names(seq), "pid" %in% names(par), "pid" %in% names(lotr), "pid" %in% names(mpl))
   
   # ----------------------------
-  # Keep only the requested columns
+  # Keep only the requested columns (pid-level tables)
   # ----------------------------
   par_keep  <- c("pid", "age", "sex", "session", "treat", "label")
   lotr_keep <- c("pid", "lotr_score", "lotr_z")
@@ -47,9 +56,11 @@ build_master_sequences <- function(dataset = "pilot") {
   chk_unique <- function(dt, name) {
     dup <- dt[, .N, by = pid][N > 1]
     if (nrow(dup) > 0) {
-      stop(name, " has duplicate pid rows. Example pids: ",
-           paste(head(dup$pid, 5), collapse = ", "),
-           " (n_dups=", nrow(dup), ")")
+      stop(
+        name, " has duplicate pid rows. Example pids: ",
+        paste(head(dup$pid, 5), collapse = ", "),
+        " (n_dups=", nrow(dup), ")"
+      )
     }
   }
   chk_unique(par,  "participants.csv")
@@ -92,4 +103,4 @@ build_master_sequences <- function(dataset = "pilot") {
 }
 
 # Example:
-# build_master_sequences("pilot")
+# build_master_sequences(cfg)

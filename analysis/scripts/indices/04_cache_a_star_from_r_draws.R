@@ -2,11 +2,19 @@
 
 library(data.table)
 
-cache_a_star_from_r_draws <- function(run, design, model) {
+cache_a_star_from_r_draws <- function(cfg) {
   
-  stopifnot(is.list(run), is.list(design), is.list(model))
-  stopifnot(!is.null(run$dataset))
-  ds <- run$dataset
+  stopifnot(
+    is.list(cfg),
+    !is.null(cfg$run),
+    !is.null(cfg$design),
+    !is.null(cfg$model),
+    !is.null(cfg$run$dataset)
+  )
+  
+  ds <- as.character(cfg$run$dataset)
+  design  <- cfg$design
+  model   <- cfg$model
   
   # ----------------------------
   # Inputs

@@ -4,7 +4,16 @@ source(here::here("scripts", "00_setup.R"))
 library(data.table)
 library(psych)
 
-score_lotr <- function(dataset = "pilot") {
+score_lotr <- function(cfg) {
+  stopifnot(
+    is.list(cfg),
+    !is.null(cfg$run),
+    !is.null(cfg$run$dataset),
+    nzchar(as.character(cfg$run$dataset))
+  )
+  
+  dataset <- as.character(cfg$run$dataset)  # keep the same variable name used in the script
+  
   
   # =================================================
   # DESIGN PARAMETERS (edit here if LOT-R design changes)

@@ -12,20 +12,22 @@ run_indices <- function(cfg) {
   )
   
   ds     <- cfg$run$dataset
-  design <- cfg$design
-  model  <- cfg$model
-  
+
   source(here::here("scripts", "indices", "01_stan_r_from_mpl.R"))
   source(here::here("scripts", "indices", "02_score_lotr.R"))
-  source(here::here("scripts", "indices", "03_build_master_sequences.R"))
+  #source(here::here("scripts", "indices", "03_score_response_times.R")) # file exists but it is not used in the current pipeline
   source(here::here("scripts", "indices", "04_cache_a_star_from_r_draws.R"))
+  source(here::here("scripts", "indices", "09_build_master_sequences.R"))
   
-  stan_r_from_mpl(run = cfg$run, design = design, model = model)
-  score_lotr(ds)
-  build_master_sequences(ds)
+  
+  stan_r_from_mpl(cfg)
+  score_lotr(cfg)
+
   
   # Produces a* cache for ALL treatments defined in design$seq$treatments
-  cache_a_star_from_r_draws(run = cfg$run, design = design, model = model)
+  cache_a_star_from_r_draws(cfg)
+  
+  build_master_sequences(cfg)
   
   msg("\nIndices phase completed for:", ds, "\n")
   
