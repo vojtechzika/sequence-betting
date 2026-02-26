@@ -1,10 +1,31 @@
+// ------------------------------------------------------------
+// RQ4: Side choices conditional on betting (Bernoulli-logit)
+// h_t = 1 if Heads, 0 if Tails, only on trials with stake > 0
+//
+// h_t ~ Bernoulli(pi_is)
+// logit(pi_is) = alpha + u_i + beta_s
+//
+// Random effects:
+//   u_i ~ Normal(0, sigma_u)
+//   beta_s ~ Normal(0, sigma_s), sum-to-zero via centering
+//
+// Priors:
+// alpha ~ Normal(0, 1.5)
+// sigma_u, sigma_s ~ HalfNormal(0, 1)
+//
+// Generated quantities:
+// mu_h[s]   = mean_i inv_logit(alpha + u_i + beta_s)
+// hbar      = mean_i inv_logit(alpha + u_i)          (baseline, beta_s=0)
+// mu_h_i[i] = inv_logit(alpha + u_i)                 (participant baseline)
+// ------------------------------------------------------------
+
 data {
-  int<lower=1> N;
-  int<lower=1> S;
-  int<lower=1> T;
+  int<lower=1> N;                 // participants
+  int<lower=1> S;                 // sequences
+  int<lower=1> T;                 // trials (betting trials only)
   int<lower=1,upper=N> pid[T];
   int<lower=1,upper=S> sid[T];
-  int<lower=0,upper=1> h[T];   // 1=Heads, 0=Tails
+  int<lower=0,upper=1> h[T];      // 1=Heads, 0=Tails
 }
 
 parameters {
@@ -42,25 +63,24 @@ model {
 generated quantities {
   vector[S] mu_h;
   real hbar;
+  vector[N] mu_h_i;
 
-  int J = 2000;           // MC draws per iteration (tune)
-  real acc;
-
-  // baseline (beta = 0)
-  acc = 0;
-  for (j in 1:J) {
-    real u0 = normal_rng(0, sigma_u);
-    acc += inv_logit(alpha + u0);
+  // participant baseline (beta_s = 0)
+  for (i in 1:N) {
+    mu_h_i[i] = inv_logit(alpha + u[i]);
   }
-  hbar = acc / J;
 
-  // sequence means
+  // baseline averaged across participants
+  {
+    real acc = 0;
+    for (i in 1:N) acc += mu_h_i[i];
+    hbar = acc / N;
+  }
+
+  // per-sequence population mean
   for (s in 1:S) {
-    acc = 0;
-    for (j in 1:J) {
-      real u0 = normal_rng(0, sigma_u);
-      acc += inv_logit(alpha + u0 + beta[s]);
-    }
-    mu_h[s] = acc / J;
+    real acc = 0;
+    for (i in 1:N) acc += inv_logit(alpha + u[i] + beta[s]);
+    mu_h[s] = acc / N;
   }
 }

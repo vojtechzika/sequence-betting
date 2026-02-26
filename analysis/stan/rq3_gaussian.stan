@@ -1,6 +1,6 @@
 // ------------------------------------------------------------
 // RQ3: Certainty-equivalent welfare loss (Gaussian diagnostic)
-// Outcome y_t = Δc_is / e (non-negative by construction; may include many zeros)
+// y_t = Δc_is / e
 //
 // y_t ~ Normal(mu_t, sigma)
 // mu_t = alpha + u_i + b_s
@@ -14,7 +14,8 @@
 //   sigma, sigma_u, sigma_s ~ HalfNormal(0,1) via <lower=0>
 //
 // Generated quantities:
-//   mu_c[s] = mean_i(alpha + u_i + b_s)
+//   mu_c[s]   = mean_i(alpha + u_i + b_s)
+//   mu_c_i[i] = mean_s(alpha + u_i + b_s)
 // ------------------------------------------------------------
 
 data {
@@ -59,12 +60,17 @@ model {
 
 generated quantities {
   vector[S] mu_c;
+  vector[N] mu_c_i;
 
   for (s in 1:S) {
     real acc = 0;
-    for (i in 1:N) {
-      acc += alpha + u[i] + b[s];
-    }
+    for (i in 1:N) acc += alpha + u[i] + b[s];
     mu_c[s] = acc / N;
+  }
+
+  for (i in 1:N) {
+    real acc = 0;
+    for (s in 1:S) acc += alpha + u[i] + b[s];
+    mu_c_i[i] = acc / S;
   }
 }

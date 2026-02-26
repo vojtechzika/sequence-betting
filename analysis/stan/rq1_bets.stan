@@ -1,33 +1,21 @@
 // ------------------------------------------------------------
-// RQ1 Betting Model (Hierarchical Logistic Regression)
+// RQ1: Probability of betting (Bernoulli-logit)
+// y_t = 1(stake > 0)
 //
-// This model estimates sequence-level deviations in the probability
-// of placing a bet (extensive margin) relative to a grand mean.
+// y_t ~ Bernoulli(pi_is)
+// logit(pi_is) = alpha + u_i + b_s
 //
-// Data structure:
-//   b_is ∈ {0,1} indicates whether participant i placed a bet
-//   in sequence s.
+// Random effects:
+//   u_i ~ Normal(0, sigma_u)
+//   b_s ~ Normal(0, sigma_s) with sum-to-zero via centering
 //
-// Model:
-//   b_is ~ Bernoulli(π_is)
-//   logit(π_is) = α + u_i + β_s
+// Priors:
+//   alpha ~ Normal(0, 1.5)
+//   sigma_u, sigma_s ~ HalfNormal(0, 1) via <lower=0> normal(0,1)
 //
-// Hierarchical structure:
-//   u_i  ~ Normal(0, σ_u)         // participant random effects
-//   β_s  ~ Normal(0, σ_s)         // sequence effects
-//
-// Identification:
-//   Sequence effects are constrained to sum to zero
-//   (Σ_s β_s = 0), so α represents the population-average
-//   log-odds of betting.
-//
-// Priors (weakly informative):
-//   α        ~ Normal(0, 1.5)
-//   σ_u, σ_s ~ HalfNormal(0, 1)
-//
-// Implementation note:
-//   Random effects are implemented using a non-centered
-//   parameterization for improved sampling efficiency.
+// Generated quantities:
+//   mu_b[s]   = mean_i inv_logit(alpha + u_i + b_s)
+//   mu_b_i[i] = mean_s inv_logit(alpha + u_i + b_s)
 // ------------------------------------------------------------
 
 data {
@@ -52,30 +40,40 @@ parameters {
 transformed parameters {
   vector[N] u = sigma_u * u_raw;
 
-  // sum-to-zero constraint for sequence effects (identified relative to grand mean)
-  vector[S] b;
-  b = b_raw - mean(b_raw);
+  // sum-to-zero sequence effects (identified relative to grand mean)
+  vector[S] b = sigma_s * (b_raw - mean(b_raw));
 }
 
 model {
+  // priors
   alpha   ~ normal(0, 1.5);
-  sigma_u ~ normal(0, 1);   // half-normal via <lower=0>
-  sigma_s ~ normal(0, 1);   // half-normal via <lower=0>
+  sigma_u ~ normal(0, 1);
+  sigma_s ~ normal(0, 1);
 
   u_raw ~ normal(0, 1);
+  b_raw ~ normal(0, 1);
 
-  // sequence effects on sigma_s scale, then sum-to-zero in transformed parameters
-  b_raw ~ normal(0, sigma_s);
-
-  for (t in 1:T)
+  // likelihood
+  for (t in 1:T) {
     y[t] ~ bernoulli_logit(alpha + u[pid[t]] + b[sid[t]]);
+  }
 }
 
 generated quantities {
   vector[S] mu_b;
+  vector[N] mu_b_i;
+
+  // per-sequence population mean betting prob
   for (s in 1:S) {
     real acc = 0;
     for (i in 1:N) acc += inv_logit(alpha + u[i] + b[s]);
     mu_b[s] = acc / N;
+  }
+
+  // per-participant mean betting prob (averaged across sequences)
+  for (i in 1:N) {
+    real acc = 0;
+    for (s in 1:S) acc += inv_logit(alpha + u[i] + b[s]);
+    mu_b_i[i] = acc / S;
   }
 }

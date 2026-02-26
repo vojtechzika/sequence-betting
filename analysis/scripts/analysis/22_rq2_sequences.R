@@ -159,7 +159,7 @@ rq2_sequences <- function(cfg) {
     
     setorder(seq_tbl, sequence)
     
-    f_seq_cal <- file.path(out_dir, paste0("rq2_sequences", tr, ".csv"))
+    f_seq_cal <- file.path(out_dir, paste0("rq2_sequences_", tr, ".csv"))
     fwrite(seq_tbl, f_seq_cal)
     
     msg("Saved: ", f_seq_cal)

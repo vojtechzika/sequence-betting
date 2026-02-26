@@ -1,40 +1,36 @@
 // ------------------------------------------------------------
-// RQ2 Staking Model (Hierarchical Normal on Z^{Δa})
+// RQ2: Proportional stake deviation on betting trials (Normal)
 //
-// Outcome:
-//   z_is = standardized within-participant stake deviation
-//          Z^{Δa}_{is} = (Δa_is - mean_i(Δa)) / s_i*(Δa)
+// Observed (per trial t with stake>0):
+//   delta_t = stake_t - a_star_{i,treat}(r_i)   (in ECU)
+//   z_t = (delta_t - delta_bar_i) / s_star_i    (standardized within participant)
 //
-// Model:
-//   z_is ~ Normal(η_is, σ)
-//   η_is = α + u_i + b_s
+// Model on z_t:
+//   z_t ~ Normal(alpha + u_i + b_s, sigma)
 //
 // Random effects:
-//   u_i ~ Normal(0, σ_u)
-//   b_s ~ Normal(0, σ_s) with sum-to-zero constraint Σ_s b_s = 0
+//   u_i ~ Normal(0, sigma_u)
+//   b_s ~ Normal(0, sigma_s) with sum-to-zero via centering
 //
-// Priors (weakly informative):
-//   α ~ Normal(0, 1)
-//   σ, σ_u, σ_s ~ HalfNormal(0, 1)
+// Priors:
+//   alpha ~ Normal(0,1.5)
+//   sigma, sigma_u, sigma_s ~ HalfNormal(0,1) via <lower=0>
 //
 // Generated quantities:
-//   mu_a[s] = (1/e) * mean_i[ Δa_bar_i + (α + u_i + b_s) * s_star_i ]
-//   (descriptive calibration contrast on absolute scale)
+//   mu_a[s]   = mean_i( delta_bar_i + (alpha + u_i + b_s) * s_star_i ) / e
+//   mu_a_i[i] = ( delta_bar_i + (alpha + u_i) * s_star_i ) / e
 // ------------------------------------------------------------
 
 data {
-  int<lower=1> N;                 // participants
-  int<lower=1> S;                 // sequences
-  int<lower=1> T;                 // betting trials used in RQ2
+  int<lower=1> N;
+  int<lower=1> S;
+  int<lower=1> T;
   int<lower=1,upper=N> pid[T];
   int<lower=1,upper=S> sid[T];
-
-  vector[T] z;                    // Z^{Δa}_{is}
-
-  // participant-level quantities used for mapping back to absolute scale
-  vector[N] delta_bar;            // \bar{Δa}_i (computed across betting trials)
-  vector<lower=0>[N] s_star;      // s_i*(Δa) = max(sd_i(Δa), floor)
-  real<lower=1> e;                // endowment (e.g., 100)
+  vector[T] z;                 // standardized stake deviation
+  vector[N] delta_bar;         // participant mean deviation (ECU)
+  vector[N] s_star;            // participant sd of deviation (ECU)
+  int<lower=1> e;              // endowment (ECU) for proportional scaling
 }
 
 parameters {
@@ -43,47 +39,50 @@ parameters {
   vector[N] u_raw;
   real<lower=0> sigma_u;
 
-  vector[S] b_raw;               // sequence effects (will be centered to sum-to-zero)
+  vector[S] b_raw;
   real<lower=0> sigma_s;
 
-  real<lower=0> sigma;           // residual SD
+  real<lower=0> sigma;
 }
 
 transformed parameters {
   vector[N] u = sigma_u * u_raw;
 
-  // sum-to-zero constraint for sequence effects (identified relative to grand mean)
-  vector[S] b;
-  b = b_raw - mean(b_raw);
+  // sum-to-zero sequence effects with hierarchical scale
+  vector[S] b = sigma_s * (b_raw - mean(b_raw));
 }
 
 model {
-  // Priors
-  alpha   ~ normal(0, 1);
-  sigma_u ~ normal(0, 1);         // half-normal via <lower=0>
-  sigma_s ~ normal(0, 1);         // half-normal via <lower=0>
-  sigma   ~ normal(0, 1);         // half-normal via <lower=0>
+  // priors
+  alpha   ~ normal(0, 1.5);
+  sigma_u ~ normal(0, 1);
+  sigma_s ~ normal(0, 1);
+  sigma   ~ normal(0, 1);
 
   u_raw ~ normal(0, 1);
+  b_raw ~ normal(0, 1);
 
-  // sequence effects with scale sigma_s, then sum-to-zero in transformed parameters
-  b_raw ~ normal(0, sigma_s);
-
-  // Likelihood
+  // likelihood
   for (t in 1:T) {
     z[t] ~ normal(alpha + u[pid[t]] + b[sid[t]], sigma);
   }
 }
 
 generated quantities {
-  // Descriptive back-mapped sequence contrast on absolute scale (as fraction of endowment)
   vector[S] mu_a;
+  vector[N] mu_a_i;
 
+  // per-sequence: population mean proportional deviation
   for (s in 1:S) {
     real acc = 0;
     for (i in 1:N) {
-      acc += delta_bar[i] + (alpha + u[i] + b[s]) * s_star[i];
+      acc += (delta_bar[i] + (alpha + u[i] + b[s]) * s_star[i]) / e;
     }
-    mu_a[s] = (acc / N) / e;
+    mu_a[s] = acc / N;
+  }
+
+  // per-participant: mean proportional deviation (sequence effects averaged out by centering)
+  for (i in 1:N) {
+    mu_a_i[i] = (delta_bar[i] + (alpha + u[i]) * s_star[i]) / e;
   }
 }
