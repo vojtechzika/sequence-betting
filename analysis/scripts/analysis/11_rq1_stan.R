@@ -23,6 +23,8 @@ rq1_stan <- function(cfg) {
   ds   <- as.character(run$dataset)
   seed <- as.integer(run$seed)
   
+  overwrite_models <- isTRUE(cfg$run$overwrite_models)
+  
   tr_vec <- unique(as.character(cfg$plan$by))
   stopifnot(length(tr_vec) > 0, all(nzchar(tr_vec)))
   
@@ -94,23 +96,16 @@ rq1_stan <- function(cfg) {
     f_pid_levels <- file.path(mod_dir, paste0("rq1_pid_levels_", tr, ".rds"))
     f_seq_levels <- file.path(mod_dir, paste0("rq1_seq_levels_", tr, ".rds"))
     
-    if (file.exists(f_fit) || file.exists(f_pid_levels) || file.exists(f_seq_levels)) {
-      warning(
-        "RQ1 Stan artifacts already exist for dataset='", ds, "', treatment='", tr, "'.\n",
-        "Stan was NOT executed.\n",
-        "To rerun, delete (as applicable):\n",
-        "  ", f_fit, "\n",
-        "  ", f_pid_levels, "\n",
-        "  ", f_seq_levels
-      )
-    } else {
-      to_run <- c(to_run, tr)
+    if (should_skip(
+      paths = c(f_fit, f_pid_levels, f_seq_levels),
+      cfg   = cfg,
+      type  = "model",
+      label = paste0("RQ1 Stan (", ds, "/", tr, ")")
+    )) {
+      next
     }
-  }
-  
-  if (length(to_run) == 0) {
-    msg("RQ1 Stan: No treatments require estimation. Nothing to run.")
-    return(invisible(NULL))
+    
+    to_run <- c(to_run, tr)
   }
   
   # Compile once per session (ONLY if needed)
@@ -137,6 +132,8 @@ rq1_stan <- function(cfg) {
     
     pid_levels <- sort(unique(d$pid))
     seq_levels <- sort(unique(d$seq))
+    
+    stopifnot(length(seq_levels) == 64L)
     
     d[, pid_i := match(pid, pid_levels)]
     d[, sid_s := match(seq, seq_levels)]

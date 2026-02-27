@@ -40,6 +40,42 @@ for (ds in c("pilot", "main")) {
 # ---- Helpers ----
 msg <- function(...) cat(..., "\n")
 
+# ============================================================
+# rewritting existing files
+# ============================================================
+
+should_skip <- function(paths, cfg, type = c("model", "output"), label = "artifact") {
+  
+  type <- match.arg(type)
+  stopifnot(is.character(paths), length(paths) >= 1L)
+  
+  overwrite_flag <- switch(
+    type,
+    model  = isTRUE(cfg$run$overwrite_models),
+    output = isTRUE(cfg$run$overwrite_outputs)
+  )
+  
+  exists_any <- any(file.exists(paths))
+  
+  if (exists_any && !overwrite_flag) {
+    
+    hint <- switch(
+      type,
+      model  = "Set cfg$run$overwrite_models = TRUE to regenerate.",
+      output = "Set cfg$run$overwrite_outputs = TRUE to regenerate."
+    )
+    
+    warning(
+      label, " already exists. Skipping.\n",
+      paste0("  ", paths, collapse = "\n"),
+      "\n", hint
+    )
+    return(TRUE)
+  }
+  
+  FALSE
+}
+
 # ----------------------------
 # Resolve treatment plan
 # ----------------------------

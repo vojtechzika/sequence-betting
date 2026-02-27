@@ -19,8 +19,9 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "02_descriptive_sequences.R"))
   
   source(here::here("scripts", "analysis", "11_rq1_stan.R"))
-  source(here::here("scripts", "analysis", "12_rq1_sequences.R"))
-  source(here::here("scripts", "analysis", "13_rq1_participants.R"))
+  source(here::here("scripts", "analysis", "12_rq1_fit_check.R"))
+  source(here::here("scripts", "analysis", "13_rq1_confirmatory_tables.R")) # generates sequences and participants table from a subset of m25 data
+  source(here::here("scripts", "analysis", "14_rq1_exploratory_tables.R")) # generates sequences and participants tables from all data (per treatment)
   
   source(here::here("scripts", "analysis", "21_rq2_stan.R"))
   source(here::here("scripts", "analysis", "22_rq2_sequences.R"))
@@ -54,8 +55,9 @@ run_analysis <- function(cfg) {
   # 10 Space: RQ1
   # ----------------------------
   rq1_stan(cfg)
-  rq1_sequences(cfg)
-  rq1_participants(cfg)
+  rq1_fit_check(cfg)
+  rq1_confirmatory_tables(cfg)
+  rq1_exploratory_tables(cfg)
   
   # ----------------------------
   # 20 Space: RQ2 

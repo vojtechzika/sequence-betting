@@ -23,6 +23,17 @@ design_cfg <- function() {
       A_high = 20.0, A_low = 16.0,
       B_high = 38.5, B_low = 1.0
     ),
+    
+    
+    a_flags = list(
+      # For each treatment label: TRUE  = a* > 0 is normatively optimal (betting benchmark); FALSE = a* = 0 is normatively optimal (no-bet benchmark)
+      betting_normative = list(
+        m25 = TRUE,
+        m19 = FALSE
+      ),
+      tau = c(0.90, 0.80, 0.95) # Thresholds for classification; first = main, rest = sensitivity
+    ),
+    
     rhos = list(
       rq1_rho = c(0.10, 0.08, 0.12),
       rq2_rho = c(0.05, 0.03, 0.08),

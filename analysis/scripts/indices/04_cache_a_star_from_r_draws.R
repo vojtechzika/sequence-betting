@@ -1,4 +1,24 @@
+# ============================================================
 # scripts/indices/04_cache_a_star_from_r_draws.R
+#
+# Computes the expected-utility optimal stake a*(r_i; m)
+# using posterior draws of risk preferences from the
+# Holt–Laury model.
+#
+# For each treatment in design$seq$treatments:
+#   - Reads mpl_r_draws_<tr>.rds
+#   - Computes a* for every posterior draw and participant
+#   - Saves a_star_draws_<tr>.rds
+#
+# The stake is obtained via discrete maximization over
+# a ∈ {0,1,...,endowment} using CRRA utility.
+#
+# This script is treatment-consistent:
+#   a_star_draws_<tr> are computed ONLY from the
+#   corresponding mpl_r_draws_<tr>.
+#
+# No pooling across treatments occurs here.
+# ============================================================
 
 library(data.table)
 
@@ -8,72 +28,50 @@ cache_a_star_from_r_draws <- function(cfg) {
     is.list(cfg),
     !is.null(cfg$run),
     !is.null(cfg$design),
-    !is.null(cfg$model),
     !is.null(cfg$run$dataset)
   )
   
-  ds <- as.character(cfg$run$dataset)
-  design  <- cfg$design
-  model   <- cfg$model
+  ds     <- as.character(cfg$run$dataset)
+  design <- cfg$design
   
-  # ----------------------------
-  # Inputs
-  # ----------------------------
-  f_draws <- file.path(path_mod_ds(ds), "mpl_r_draws.rds")
-  stopifnot(file.exists(f_draws))
+  mod_dir <- path_mod_ds(ds)
+  dir.create(mod_dir, showWarnings = FALSE, recursive = TRUE)
   
-  hl <- readRDS(f_draws)
-  stopifnot(is.list(hl), all(c("pid", "r_draws") %in% names(hl)))
+  e     <- design$seq$endowment
+  xmin  <- design$seq$xmin
+  p_win <- design$seq$coin_prob
   
-  pid_levels <- as.character(hl$pid)
-  r_draws <- hl$r_draws  # iters x N
-  stopifnot(is.matrix(r_draws))
-  
-  iters <- nrow(r_draws)
-  N <- ncol(r_draws)
-  stopifnot(length(pid_levels) == N)
-  
-  # ----------------------------
-  # Design + numeric params
-  # ----------------------------
-  stopifnot(!is.null(design$seq))
-  e      <- as.integer(design$seq$endowment)
-  xmin   <- as.numeric(design$seq$xmin)
-  p_win  <- if (!is.null(design$seq$coin_prob)) as.numeric(design$seq$coin_prob) else 0.5
-  
-  stopifnot(length(e) == 1L, e > 0L)
-  stopifnot(length(xmin) == 1L, is.finite(xmin), xmin > 0)
-  stopifnot(length(p_win) == 1L, is.finite(p_win), p_win > 0, p_win < 1)
-  
-  stopifnot(!is.null(design$seq$treatments), length(design$seq$treatments) > 0)
-  tr_names <- names(design$seq$treatments)
-  stopifnot(length(tr_names) > 0, all(nzchar(tr_names)))
-  
-  # stake grid (integer ECU)
-  grid <- 0:e
-  
-  # tolerance (constant; used in a_star_discrete)
+  grid  <- 0:e
   r_tol <- get("R_TOL_DEFAULT", inherits = TRUE)
-  stopifnot(length(r_tol) == 1L, is.finite(r_tol), r_tol > 0)
   
-  # ----------------------------
-  # Compute + save per treatment
-  # ----------------------------
-  out_files <- character(0)
+  # ============================================================
+  # For each treatment: read matching r_draws_<tr>.rds
+  # ============================================================
   
-  for (tr in tr_names) {
+  for (tr in names(design$seq$treatments)) {
+    
+    f_r <- file.path(mod_dir, paste0("mpl_r_draws_", tr, ".rds"))
+    stopifnot(file.exists(f_r))
+    
+    f_out <- file.path(mod_dir, paste0("a_star_draws_", tr, ".rds"))
+    
+    if (should_skip(f_out, cfg, "model",
+                    paste0("a_star cache (", ds, "/", tr, ")"))) next
+    
+    hl <- readRDS(f_r)
+    pid_levels <- hl$pid
+    r_draws    <- hl$r_draws
+    
+    iters <- nrow(r_draws)
+    N     <- ncol(r_draws)
     
     m <- design$seq$treatments[[tr]]
-    if (!is.numeric(m) || length(m) != 1L || !is.finite(m) || m <= 1) {
-      stop("Invalid multiplier for treatment '", tr, "': ", paste(m, collapse = ", "))
-    }
     
-    msg("Caching a* for treatment:", tr, "| multiplier:", m)
+    a_star_draws <- matrix(NA_integer_, nrow=iters, ncol=N)
     
-    a_star_draws <- matrix(NA_integer_, nrow = iters, ncol = N)
     for (i in 1:N) {
-      a_star_draws[, i] <- vapply(
-        r_draws[, i],
+      a_star_draws[,i] <- vapply(
+        r_draws[,i],
         FUN = a_star_discrete,
         FUN.VALUE = integer(1),
         m = m,
@@ -85,32 +83,10 @@ cache_a_star_from_r_draws <- function(cfg) {
       )
     }
     
-    out <- list(
-      pid = pid_levels,
-      a_star_draws = a_star_draws,
-      params = list(
-        dataset = ds,
-        treatment = tr,
-        mult = m,
-        endowment = e,
-        coin_prob = p_win,
-        xmin = xmin,
-        r_tol = r_tol
-      )
+    saveRDS(
+      list(pid = pid_levels,
+           a_star_draws = a_star_draws),
+      f_out
     )
-    
-    f_out <- file.path(path_mod_ds(ds), paste0("a_star_draws_", tr, ".rds"))
-    saveRDS(out, f_out)
-    msg("Saved:", f_out)
-    
-    out_files <- c(out_files, f_out)
   }
-  
-  invisible(out_files)
 }
-
-# Example:
-# run    <- run_cfg()
-# design <- design_cfg()
-# model  <- model_cfg()
-# cache_a_star_from_r_draws(run, design, model)

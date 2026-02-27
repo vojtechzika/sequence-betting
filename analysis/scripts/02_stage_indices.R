@@ -15,17 +15,18 @@ run_indices <- function(cfg) {
 
   source(here::here("scripts", "indices", "01_stan_r_from_mpl.R"))
   source(here::here("scripts", "indices", "02_score_lotr.R"))
-  #source(here::here("scripts", "indices", "03_score_response_times.R")) # file exists but it is not used in the current pipeline
+  #source(here::here("scripts", "indices", "03_score_response_times.R")) # not used in the current pipeline - time is computed directly in the analysis
   source(here::here("scripts", "indices", "04_cache_a_star_from_r_draws.R"))
+  source(here::here("scripts", "indices", "05_pids_with_positive_a_star.R"))
   source(here::here("scripts", "indices", "09_build_master_sequences.R"))
   
   
+  ### Run Stuff
+  
   stan_r_from_mpl(cfg)
   score_lotr(cfg)
-
-  
-  # Produces a* cache for ALL treatments defined in design$seq$treatments
-  cache_a_star_from_r_draws(cfg)
+  cache_a_star_from_r_draws(cfg) # Produces a* cache for ALL treatments defined in design$seq$treatments
+  pids_with_positive_a_star(cfg) # Flags normative betters and non-betters for downstream analyses
   
   build_master_sequences(cfg)
   
