@@ -24,13 +24,6 @@ library(data.table)
 
 cache_a_star_from_r_draws <- function(cfg) {
   
-  stopifnot(
-    is.list(cfg),
-    !is.null(cfg$run),
-    !is.null(cfg$design),
-    !is.null(cfg$run$dataset)
-  )
-  
   ds     <- as.character(cfg$run$dataset)
   design <- cfg$design
   
@@ -55,8 +48,15 @@ cache_a_star_from_r_draws <- function(cfg) {
     
     f_out <- file.path(mod_dir, paste0("a_star_draws_", tr, ".rds"))
     
-    if (should_skip(f_out, cfg, "model",
-                    paste0("a_star cache (", ds, "/", tr, ")"))) next
+    if (should_skip(
+      paths = f_out,
+      cfg   = cfg,
+      type  = "model",
+      label = paste0("a_star cache (", ds, "/", tr, ")")
+    )) {
+      msg("Skipped: ", f_out)
+      next
+    }
     
     hl <- readRDS(f_r)
     pid_levels <- hl$pid
@@ -84,9 +84,15 @@ cache_a_star_from_r_draws <- function(cfg) {
     }
     
     saveRDS(
-      list(pid = pid_levels,
-           a_star_draws = a_star_draws),
+      list(
+        pid = pid_levels,
+        a_star_draws = a_star_draws
+      ),
       f_out
     )
+    
+    msg("Saved: ", f_out,
+        " | iters: ", iters,
+        " | N: ", N)
   }
 }

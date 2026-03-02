@@ -13,20 +13,9 @@ rstan_options(auto_write = TRUE)
 
 rq1_stan <- function(cfg) {
   
-  stopifnot(is.list(cfg), !is.null(cfg$run), !is.null(cfg$design), !is.null(cfg$model))
-  stopifnot(!is.null(cfg$run$dataset), !is.null(cfg$run$seed))
-  stopifnot(!is.null(cfg$plan), !is.null(cfg$plan$by))
-  
-  run    <- cfg$run
-  model  <- cfg$model
-  
-  ds   <- as.character(run$dataset)
-  seed <- as.integer(run$seed)
-  
-  overwrite_models <- isTRUE(cfg$run$overwrite_models)
-  
-  tr_vec <- unique(as.character(cfg$plan$by))
-  stopifnot(length(tr_vec) > 0, all(nzchar(tr_vec)))
+  ds   <- as.character(cfg$run$dataset)
+  seed <- as.integer(cfg$run$seed)
+  tr_vec <- unique(as.character(cfg$run$treatment))
   
   # ----------------------------
   # Files
@@ -36,9 +25,6 @@ rq1_stan <- function(cfg) {
   
   stan_file <- here::here("stan", "rq1_bets.stan")
   stopifnot(file.exists(stan_file))
-  
-  # Normalize line endings (prevents hash-mismatch churn)
-  writeLines(readLines(stan_file, warn = FALSE), stan_file)
   
   # ----------------------------
   # Stan sampling settings (from model cfg)

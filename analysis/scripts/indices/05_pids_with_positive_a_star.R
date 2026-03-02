@@ -20,9 +20,6 @@ library(data.table)
 
 pids_with_positive_a_star <- function(cfg) {
   
-  stopifnot(is.list(cfg), !is.null(cfg$run), !is.null(cfg$design))
-  stopifnot(!is.null(cfg$run$dataset))
-  
   ds <- as.character(cfg$run$dataset)
   
   # ---- design: treatments & flags ----
@@ -58,7 +55,7 @@ pids_with_positive_a_star <- function(cfg) {
     f_csv <- file.path(out_dir, paste0("a_star_pid_flags_", tr, ".csv"))
     
     # Skip each output independently (so you can delete just one and regenerate it)
-    if (should_skip(paths = f_rds, cfg = cfg, type = "output",
+    if (should_skip(paths = f_rds, cfg = cfg, type = "model",
                     label = paste0("a* pid flags RDS (", ds, "/", tr, ")"))) {
       f_rds <- NULL
     }

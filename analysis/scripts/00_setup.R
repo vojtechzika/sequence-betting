@@ -37,12 +37,51 @@ for (ds in c("pilot", "main")) {
   dir.create(path_mod_ds(ds), showWarnings = FALSE, recursive = TRUE)
 }
 
-# ---- Helpers ----
+# ============================================================
+# HELPERS
+# ============================================================
+
+### Console Messages
 msg <- function(...) cat(..., "\n")
 
-# ============================================================
-# rewritting existing files
-# ============================================================
+### Validate config files
+validate_cfg <- function(cfg) {
+  
+  stopifnot(is.list(cfg))
+  
+  # ---- run ----
+  stopifnot(
+    !is.null(cfg$run),
+    nzchar(as.character(cfg$run$dataset)),
+    is.numeric(cfg$run$seed),
+    length(cfg$run$seed) == 1L,
+    !is.null(cfg$run$treatment)
+  )
+  
+  # ---- design ----
+  stopifnot(
+    !is.null(cfg$design),
+    !is.null(cfg$design$seq),
+    !is.null(cfg$design$seq$treatments)
+  )
+  
+  tr <- unique(as.character(cfg$run$treatment))
+  
+  stopifnot(
+    length(tr) > 0L,
+    all(nzchar(tr)),
+    all(tr %in% names(cfg$design$seq$treatments))
+  )
+  
+  # ---- model ----
+  stopifnot(!is.null(cfg$model))
+  
+  invisible(TRUE)
+}
+
+
+### rewritting existing files
+
 
 should_skip <- function(paths, cfg, type = c("model", "output"), label = "artifact") {
   
@@ -76,41 +115,7 @@ should_skip <- function(paths, cfg, type = c("model", "output"), label = "artifa
   FALSE
 }
 
-# ----------------------------
-# Resolve treatment plan
-# ----------------------------
-# treatment options:
-#   "all"  = pooled only (no filtering)
-#   "each" = run separately for each treatment present
-#   "both" = pooled + separately for each treatment present
-#   c("m25","m19") = specified subset (no pooled)
-resolve_treatments <- function(dataset, treatments) {
-  
-  f_merged <- file.path(path_clean_ds(dataset), "merged.csv")
-  if (!file.exists(f_merged)) {
-    stop(
-      "merged.csv not found at: ", f_merged, "\n",
-      "Treatment resolution requires merged.csv. Call resolve_treatments() only after ETL has created it."
-    )
-  }
-  
-  dt <- data.table::fread(f_merged, select = "participant.treatment")
-  available <- sort(unique(as.character(dt$participant.treatment)))
-  available <- available[!is.na(available) & nzchar(available)]
-  if (length(available) == 0) stop("No non-missing participant.treatment values in merged.csv.")
-  
-  treatments <- unique(as.character(treatments))
-  if (length(treatments) == 0) stop("run$treatment is empty.")
-  missing <- setdiff(treatments, available)
-  if (length(missing) > 0) {
-    stop(
-      "Unknown treatment(s): ", paste(missing, collapse = ", "),
-      "\nAvailable: ", paste(available, collapse = ", ")
-    )
-  }
-  
-  list(by = treatments, available = available)
-}
+
 
 
 # treatment-specific multiplier lookup (design spec)

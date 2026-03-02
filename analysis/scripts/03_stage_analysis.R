@@ -3,29 +3,19 @@
 ############################
 
 run_analysis <- function(cfg) {
-  
-  stopifnot(
-    is.list(cfg),
-    !is.null(cfg$run),
-    !is.null(cfg$run$dataset),
-    !is.null(cfg$plan)
-  )
-  
-  ds   <- cfg$run$dataset
-  plan <- cfg$plan  # required for downstream funcs
-  
+
   # --- Load Sources --- #
   source(here::here("scripts", "analysis", "01_descriptive_participants.R"))
   source(here::here("scripts", "analysis", "02_descriptive_sequences.R"))
   
   source(here::here("scripts", "analysis", "11_rq1_stan.R"))
   source(here::here("scripts", "analysis", "12_rq1_fit_check.R"))
-  source(here::here("scripts", "analysis", "13_rq1_confirmatory_tables.R")) # generates sequences and participants table from a subset of m25 data
-  source(here::here("scripts", "analysis", "14_rq1_exploratory_tables.R")) # generates sequences and participants tables from all data (per treatment)
-  
+  source(here::here("scripts", "analysis", "13_rq1_tables.R")) 
+
   source(here::here("scripts", "analysis", "21_rq2_stan.R"))
-  source(here::here("scripts", "analysis", "22_rq2_sequences.R"))
-  source(here::here("scripts", "analysis", "23_rq2_participants.R"))
+  source(here::here("scripts", "analysis", "22_rq2_fit_check.R"))
+  source(here::here("scripts", "analysis", "23_rq2_tables.R"))
+
   
   source(here::here("scripts", "analysis", "31_rq3_stan.R"))
   source(here::here("scripts", "analysis", "32_rq3_sequences.R"))
@@ -56,15 +46,16 @@ run_analysis <- function(cfg) {
   # ----------------------------
   rq1_stan(cfg)
   rq1_fit_check(cfg)
-  rq1_confirmatory_tables(cfg)
-  rq1_exploratory_tables(cfg)
+  rq1_tables(cfg)
   
   # ----------------------------
   # 20 Space: RQ2 
   # ----------------------------
    rq2_stan(cfg)
-   rq2_sequences(cfg)
-   rq2_participants(cfg)
+   rq2_fit_check(cfg)
+   rq2_tables(cfg)
+   
+   
    
    # ----------------------------
    # 30 Space: RQ3 

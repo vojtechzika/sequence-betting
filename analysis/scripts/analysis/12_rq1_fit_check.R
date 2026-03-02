@@ -34,33 +34,36 @@ library(rstan)
 
 rq1_fit_check <- function(cfg) {
   
-  stopifnot(is.list(cfg), !is.null(cfg$run), !is.null(cfg$plan))
-  stopifnot(!is.null(cfg$run$dataset))
-  stopifnot(!is.null(cfg$plan$by))
+  ds   <- as.character(cfg$run$dataset)
+  seed <- as.integer(cfg$run$seed)
+  tr_vec <- unique(as.character(cfg$run$treatment))
+  
+  # ------------------------------------------------------------
+  # PPC controls (from model config)
+  # ------------------------------------------------------------
+  stopifnot(!is.null(cfg$model), !is.null(cfg$model$ppc))
   
   ds <- as.character(cfg$run$dataset)
-  tr_vec <- unique(as.character(cfg$plan$by))
-  stopifnot(length(tr_vec) > 0L, all(nzchar(tr_vec)))
   
-  # --- run controls ---
-  # Number of posterior draws used for PPC (subsample for speed)
-  K_ppc <- cfg$run$rq1_ppc_k
-  if (is.null(K_ppc)) K_ppc <- 500L
-  
-  K_ppc <- as.integer(K_ppc)
+  # Number of posterior draws for PPC
+  K_ppc <- cfg$model$ppc$rq1_k[[ds]]
   stopifnot(
     length(K_ppc) == 1L,
     is.finite(K_ppc),
     K_ppc >= 50L
   )
+  K_ppc <- as.integer(K_ppc)
   
-  # p-value interval for "adequate"
-  p_lo <- cfg$run$rq1_ppc_p_lo
-  p_hi <- cfg$run$rq1_ppc_p_hi
-  if (is.null(p_lo)) p_lo <- 0.05
-  if (is.null(p_hi)) p_hi <- 0.95
-  p_lo <- as.numeric(p_lo); p_hi <- as.numeric(p_hi)
-  stopifnot(is.finite(p_lo), is.finite(p_hi), p_lo > 0, p_hi < 1, p_lo < p_hi)
+  # Adequacy interval
+  stopifnot(!is.null(cfg$model$ppc$rq1_interval))
+  p_lo <- as.numeric(cfg$model$ppc$rq1_interval[1])
+  p_hi <- as.numeric(cfg$model$ppc$rq1_interval[2])
+  
+  stopifnot(
+    is.finite(p_lo), is.finite(p_hi),
+    p_lo > 0, p_hi < 1,
+    p_lo < p_hi
+  )
   
   # RNG seed for PPC subsampling / simulation
   seed <- cfg$run$seed

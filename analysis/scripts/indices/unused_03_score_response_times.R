@@ -19,7 +19,7 @@
 library(data.table)
 
 score_response_times <- function(cfg) {
-  stopifnot(is.list(cfg), !is.null(cfg$run), !is.null(cfg$run$dataset))
+
   ds <- as.character(cfg$run$dataset)
   
   in_file <- file.path(path_clean_ds(ds), "sequences.csv")

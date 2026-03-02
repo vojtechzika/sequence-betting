@@ -1,6 +1,7 @@
 source(here::here("scripts", "00_setup.R"))
 
-run_read_merge_filter <- function(dataset = "pilot") {
+run_read_merge_filter <- function(cfg) {
+  dataset <- as.character(cfg$run$dataset)
   
   # --------------------------------------------
   # Use dataset-specific raw folder

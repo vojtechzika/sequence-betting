@@ -1,7 +1,8 @@
 # scripts/02_table_participants.R
 source(here::here("scripts", "00_setup.R"))
 
-make_participants_table <- function(dataset = "pilot") {
+make_participants_table <- function(cfg) {
+  dataset <- as.character(cfg$run$dataset)
   
   infile <- file.path(path_clean_ds(dataset), "merged.csv")
   stopifnot(file.exists(infile))

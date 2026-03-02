@@ -5,94 +5,135 @@ library(data.table)
 library(psych)
 
 score_lotr <- function(cfg) {
+  
+  dataset <- as.character(cfg$run$dataset)
+  
+  # =================================================
+  # DESIGN PARAMETERS (from design cfg)
+  # =================================================
+  lotr_cfg <- cfg$design$lotr
+  
+  LOTR_SCALE_MIN <- as.integer(lotr_cfg$scale_min)
+  LOTR_SCALE_MAX <- as.integer(lotr_cfg$scale_max)
+  
+  item_cols    <- as.character(lotr_cfg$item_cols)
+  scored_items <- as.character(lotr_cfg$scored_items)
+  rev_items    <- as.character(lotr_cfg$rev_items)
+  
   stopifnot(
-    is.list(cfg),
-    !is.null(cfg$run),
-    !is.null(cfg$run$dataset),
-    nzchar(as.character(cfg$run$dataset))
+    length(LOTR_SCALE_MIN) == 1L,
+    length(LOTR_SCALE_MAX) == 1L,
+    LOTR_SCALE_MAX > LOTR_SCALE_MIN,
+    length(item_cols) > 0L,
+    length(scored_items) > 0L,
+    all(rev_items %in% scored_items),
+    all(scored_items %in% item_cols)
   )
-  
-  dataset <- as.character(cfg$run$dataset)  # keep the same variable name used in the script
-  
-  
-  # =================================================
-  # DESIGN PARAMETERS (edit here if LOT-R design changes)
-  # =================================================
-  
-  LOTR_SCALE_MIN <- 0
-  LOTR_SCALE_MAX <- 4
-  
-  # Expected raw item columns in lotr.csv
-  item_cols <- paste0("q", 1:10)
-  
-  # LOT-R key (your screenshot)
-  # Scored items: 1, 3, 4, 7, 9, 10
-  # Reverse-coded: 3, 7, 9
-  scored_items <- c("q1", "q3", "q4", "q7", "q9", "q10")
-  rev_items    <- c("q3", "q7", "q9")
   
   # =================================================
   # INPUT
   # =================================================
-  
   infile <- file.path(path_clean_ds(dataset), "lotr.csv")
   stopifnot(file.exists(infile))
   
-  dt <- data.table::fread(infile, encoding = "UTF-8")
-  
+  dt <- fread(infile, encoding = "UTF-8")
   stopifnot(all(c("pid", item_cols) %in% names(dt)))
   
   # =================================================
-  # OUTPUT FOLDERS (dataset-specific artifacts)
+  # OUTPUT PATHS
   # =================================================
-  
   out_dir <- path_out_ds(dataset)
   mod_dir <- path_mod_ds(dataset)
   
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
   dir.create(mod_dir, showWarnings = FALSE, recursive = TRUE)
   
+  outfile_scored    <- file.path(path_clean_ds(dataset), "lotr_scored.csv")
+  outfile_alpha_rds <- file.path(mod_dir, "lotr_alpha.rds")
+  outfile_alpha_csv <- file.path(out_dir, "lotr_alpha.csv")
+  
+  # =================================================
+  # should_skip guards (scored output)
+  # =================================================
+  if (should_skip(
+    paths = outfile_scored,
+    cfg   = cfg,
+    type  = "output",
+    label = paste0("LOT-R scored (", dataset, ")")
+  )) {
+    return(invisible(NULL))
+  }
+  
   # =================================================
   # CLEANING
   # =================================================
-  
-  # Force numeric (guards will catch NAs if something is not numeric)
+  dt[, pid := as.character(pid)]
   dt[, (item_cols) := lapply(.SD, as.numeric), .SDcols = item_cols]
   
-  # Guard: no missing in scored items (since responses are forced)
+  # Guard: no missing in scored items (forced responses)
   if (!dt[, all(complete.cases(.SD)), .SDcols = scored_items]) {
     bad <- dt[!complete.cases(dt[, ..scored_items]), .(pid)]
-    stop(
-      "LOT-R: missing values detected in scored items for pid(s): ",
-      paste(bad$pid, collapse = ", ")
-    )
+    stop("LOT-R: missing values in scored items for pid(s): ", paste(bad$pid, collapse = ", "))
   }
   
   # =================================================
   # SCORING
   # =================================================
-  
-  # Reverse code: x -> max+min-x
   dt[, (rev_items) := lapply(.SD, function(x) LOTR_SCALE_MAX + LOTR_SCALE_MIN - x),
      .SDcols = rev_items]
   
-  dt[, lotr_score := rowSums(.SD), .SDcols = scored_items]
+  dt[, lotr_score := rowSums(.SD),  .SDcols = scored_items]
   dt[, lotr_mean  := rowMeans(.SD), .SDcols = scored_items]
   dt[, lotr_z     := as.numeric(scale(lotr_score))]
   
-  # =================================================
-  # RELIABILITY: Cronbach alpha (scored items only)
-  # =================================================
+  out_scored <- dt[, .(pid, lotr_score, lotr_mean, lotr_z)]
+  fwrite(out_scored, outfile_scored)
+  msg("Saved: ", outfile_scored, " | rows: ", nrow(out_scored))
   
+  # =================================================
+  # Append lotr_score into master_sequences.csv (ONLY lotr_score)
+  # =================================================
+  f_master <- file.path(path_clean_ds(dataset), "master_sequences.csv")
+  stopifnot(file.exists(f_master))
+  
+  # Guard overwrite behavior for master update
+  if (!should_skip(
+    paths = f_master,
+    cfg   = cfg,
+    type  = "output",
+    label = paste0("Append lotr_score to master (", dataset, ")")
+  )) {
+    
+    master <- fread(f_master)
+    stopifnot("pid" %in% names(master))
+    
+    master[, pid := as.character(pid)]
+    out_scored[, pid := as.character(pid)]
+    
+    # Remove existing lotr_score if re-running
+    if ("lotr_score" %in% names(master)) {
+      master[, lotr_score := NULL]
+    }
+    
+    master <- merge(
+      master,
+      out_scored[, .(pid, lotr_score)],
+      by = "pid",
+      all.x = TRUE
+    )
+    
+    fwrite(master, f_master)
+    msg("Saved: ", f_master, " (updated with lotr_score)")
+  }
+  
+  # =================================================
+  # RELIABILITY: Cronbach alpha
+  # =================================================
   alpha_result <- psych::alpha(dt[, ..scored_items])
   alpha_val    <- alpha_result$total$raw_alpha
   
-  msg("Cronbach alpha (LOT-R scored items):", round(alpha_val, 3))
+  msg("Cronbach alpha (LOT-R scored items): ", round(alpha_val, 3))
   
-  # Save full alpha object (models/; should be gitignored)
-  saveRDS(alpha_result, file.path(path_mod_ds(dataset), "lotr_alpha.rds"))
-  
-  # Interpretation (simple)
   alpha_interpretation <- if (alpha_val >= 0.9) {
     "Excellent internal consistency (may be inflated in small samples)."
   } else if (alpha_val >= 0.8) {
@@ -107,7 +148,18 @@ score_lotr <- function(cfg) {
     "Unacceptable internal consistency."
   }
   
-  alpha_table <- data.table::data.table(
+  # Save RDS (model artifact)
+  if (!should_skip(
+    paths = outfile_alpha_rds,
+    cfg   = cfg,
+    type  = "model",
+    label = paste0("LOT-R alpha rds (", dataset, ")")
+  )) {
+    saveRDS(alpha_result, outfile_alpha_rds)
+    msg("Saved: ", outfile_alpha_rds)
+  }
+  
+  alpha_table <- data.table(
     dataset = dataset,
     n_participants = nrow(dt),
     n_items = length(scored_items),
@@ -117,36 +169,16 @@ score_lotr <- function(cfg) {
     interpretation = alpha_interpretation
   )
   
-  outfile_alpha_csv <- file.path(path_mod_ds(dataset), "lotr_alpha.csv")
-  data.table::fwrite(alpha_table, outfile_alpha_csv)
-  
-  msg("LOT-R alpha table saved:", outfile_alpha_csv)
-  
-  # =================================================
-  # OUTPUT: scored dataset (table lives in data/clean/<ds>/)
-  # =================================================
-  
-  out_scored <- dt[, .(pid, lotr_score, lotr_mean, lotr_z)]
-  
-  outfile <- file.path(path_clean_ds(dataset), "lotr_scored.csv")
-  data.table::fwrite(out_scored, outfile)
-  
-  msg("LOT-R scored table saved:", outfile, "| rows:", nrow(out_scored))
-  
-  # Run log (lightweight)
-  logfile <- file.path(out_dir, "lotr_run_log.txt")
-  cat(
-    paste0(
-      "dataset=", dataset, "\n",
-      "timestamp=", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n",
-      "items=", paste(item_cols, collapse = ","), "\n",
-      "scored_items=", paste(scored_items, collapse = ","), "\n",
-      "rev_items=", paste(rev_items, collapse = ","), "\n",
-      "scale_min=", LOTR_SCALE_MIN, " scale_max=", LOTR_SCALE_MAX, "\n",
-      "alpha_raw=", round(alpha_val, 6), "\n"
-    ),
-    file = logfile
-  )
+  # Save CSV (output artifact)
+  if (!should_skip(
+    paths = outfile_alpha_csv,
+    cfg   = cfg,
+    type  = "output",
+    label = paste0("LOT-R alpha csv (", dataset, ")")
+  )) {
+    fwrite(alpha_table, outfile_alpha_csv)
+    msg("Saved: ", outfile_alpha_csv)
+  }
   
   invisible(list(scored = out_scored, alpha = alpha_result, alpha_table = alpha_table))
 }
