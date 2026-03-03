@@ -41,7 +41,7 @@ parameters {
 
 transformed parameters {
   vector[N] u = sigma_u * u_raw;
-  vector[S] b = b_raw - mean(b_raw);
+  vector[S] b = sigma_s * (b_raw - mean(b_raw));
 }
 
 model {

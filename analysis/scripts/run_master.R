@@ -33,4 +33,4 @@ run_indices(cfg) # Continue with indices the analyses will need
 run_analysis(cfg) # Run analyses
 
 
-msg("\nMASTER completed for dataset:", cfg$dataset, "\n")
+msg("\nMASTER completed for dataset:", cfg$run$dataset, "\n")

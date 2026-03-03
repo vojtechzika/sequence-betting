@@ -249,7 +249,7 @@ stan_r_from_mpl <- function(cfg) {
   # Append r_mean, r_median, inconsistent to master_sequences.csv (from pooled scored)
   # ============================================================
   f_master <- file.path(path_clean_ds(ds), "master_sequences.csv")
-  f_mpl    <- file.path(path_clean_ds(ds), "mpl_scored.csv")
+  f_mpl    <- file.path(path_out_ds(ds), "mpl_scored.csv")
   
   stopifnot(file.exists(f_master), file.exists(f_mpl))
   
@@ -260,7 +260,7 @@ stan_r_from_mpl <- function(cfg) {
   mpl_scored[, pid := as.character(pid)]
   
   # Drop previous versions
-  master[, c("inconsistent", "r_inconsistent", "mpl_inconsistent") := NULL]
+  master[, c("mpl_inconsistent") := NULL]
   
   master <- merge(
     master,

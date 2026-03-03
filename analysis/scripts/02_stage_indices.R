@@ -20,7 +20,7 @@ run_indices <- function(cfg) {
   
   
   
-  msg("\nIndices completed for:", ds, "\n")
+  msg("\nIndices completed for:", cfg$run$dataset, "\n")
   
   invisible(TRUE)
 }

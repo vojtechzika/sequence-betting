@@ -16,7 +16,7 @@ library(data.table)
 library(rstan)
 library(ggplot2)
 
-rq2_fit_check <- function(cfg) {
+rq2_diagnostics <- function(cfg) {
   
   ds   <- as.character(cfg$run$dataset)
   seed <- as.integer(cfg$run$seed)

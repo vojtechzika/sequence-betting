@@ -75,7 +75,7 @@ design_cfg <- function() {
         m25 = TRUE,
         m19 = FALSE
       ),
-      tau = c(0.90, 0.80, 0.95)
+      tau = c(0.90, 0.80, 0.95) # first value is for the primary analysis
     ),
     
     # --------------------------------------------------------

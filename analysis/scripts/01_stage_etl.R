@@ -18,7 +18,7 @@ run_etl <- function(cfg) {
   make_lotr_table(cfg)
   make_debriefing_table(cfg)
   
-  msg("\nETL completed for:", ds, "\n")
+  msg("\nETL completed for:", cfg$run$dataset, "\n")
   
   invisible(TRUE)
 }

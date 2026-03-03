@@ -1,124 +1,57 @@
-# ============================================================
-# scripts/analysis/11_rq1_stan.R
-#   - fits RQ1 model per treatment (NO pooled)
-#   - writes ONLY Stan artifacts (fit + levels)
-#   - has safeguard: if artifacts exist, skips that treatment
-# ============================================================
-
-library(data.table)
-library(rstan)
-
-options(mc.cores = parallel::detectCores())
-rstan_options(auto_write = TRUE)
-
 rq1_stan <- function(cfg) {
   
   ds   <- as.character(cfg$run$dataset)
   seed <- as.integer(cfg$run$seed)
   tr_vec <- unique(as.character(cfg$run$treatment))
   
-  # ----------------------------
-  # Files
-  # ----------------------------
+  design <- cfg$design
+  model  <- cfg$model
+  
   infile <- file.path(path_clean_ds(ds), "master_sequences.csv")
-  stopifnot(file.exists(infile))
-  
   stan_file <- here::here("stan", "rq1_bets.stan")
-  stopifnot(file.exists(stan_file))
+  stopifnot(file.exists(infile), file.exists(stan_file))
   
-  # ----------------------------
-  # Stan sampling settings (from model cfg)
-  # ----------------------------
-  stopifnot(!is.null(model$stan), !is.null(model$stan$rq1), !is.null(model$stan$rq1[[ds]]))
+  # Stan settings
   st <- model$stan$rq1[[ds]]
-  
   iter_val        <- as.integer(st$iter)
   warmup_val      <- as.integer(st$warmup)
   chains_val      <- as.integer(st$chains)
   adapt_delta_val <- as.numeric(st$adapt_delta)
   treedepth_val   <- as.integer(st$treedepth)
   
-  stopifnot(iter_val > 0L, warmup_val >= 0L, chains_val > 0L)
-  stopifnot(is.finite(adapt_delta_val), adapt_delta_val > 0, adapt_delta_val < 1)
-  stopifnot(treedepth_val > 0L)
-  
-  msg("RQ1 Stan settings (dataset=", ds, "):",
-      " iter=", iter_val,
-      " warmup=", warmup_val,
-      " chains=", chains_val,
-      " adapt_delta=", adapt_delta_val,
-      " treedepth=", treedepth_val,
-      " seed=", seed)
-  
   mod_dir <- path_mod_ds(ds)
   dir.create(mod_dir, showWarnings = FALSE, recursive = TRUE)
   
-  # ----------------------------
-  # Load + schema checks
-  # ----------------------------
-  dt <- fread(infile, encoding = "UTF-8")
+  # Load master
+  dt <- data.table::fread(infile, encoding = "UTF-8")
+  stopifnot(all(c("pid","treat","stake","seq") %in% names(dt)))
   
-  required <- c("pid", "treat", "stake", "seq")
-  missing <- setdiff(required, names(dt))
-  if (length(missing) > 0) {
-    stop(
-      "master_sequences.csv missing columns: ", paste(missing, collapse = ", "),
-      "\nExpected at least: ", paste(required, collapse = ", ")
-    )
-  }
-  
-  dt[, pid   := as.character(pid)]
+  dt[, pid := as.character(pid)]
   dt[, treat := as.character(treat)]
-  dt[, seq   := as.character(seq)]
+  dt[, seq := as.character(seq)]
+  dt[, y := as.integer(!is.na(stake) & as.numeric(stake) > 0)]
   
-  # -------------------------------------------------
-  # Pre-check artifacts BEFORE compiling Stan
-  # -------------------------------------------------
-  to_run <- character(0)
-  
-  for (tr in tr_vec) {
-    
-    f_fit        <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, ".rds"))
-    f_pid_levels <- file.path(mod_dir, paste0("rq1_pid_levels_", tr, ".rds"))
-    f_seq_levels <- file.path(mod_dir, paste0("rq1_seq_levels_", tr, ".rds"))
-    
-    if (should_skip(
-      paths = c(f_fit, f_pid_levels, f_seq_levels),
-      cfg   = cfg,
-      type  = "model",
-      label = paste0("RQ1 Stan (", ds, "/", tr, ")")
-    )) {
-      next
-    }
-    
-    to_run <- c(to_run, tr)
-  }
-  
-  # Compile once per session (ONLY if needed)
+  # Compile once
   sm <- rstan::stan_model(stan_file)
   
-  # ----------------------------
-  # Run per treatment (NO pooled)
-  # ----------------------------
-  outputs <- list()
-  
-  for (tr in to_run) {
+  # Helper: fit one dataset slice and write artifacts
+  fit_one <- function(d, tr, tag) {
     
-    f_fit        <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, ".rds"))
-    f_pid_levels <- file.path(mod_dir, paste0("rq1_pid_levels_",  tr, ".rds"))
-    f_seq_levels <- file.path(mod_dir, paste0("rq1_seq_levels_", tr, ".rds"))
+    f_fit <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, "_", tag, ".rds"))
+    f_pid <- file.path(mod_dir, paste0("rq1_pid_levels_",  tr, "_", tag, ".rds"))
+    f_seq <- file.path(mod_dir, paste0("rq1_seq_levels_",  tr, "_", tag, ".rds"))
     
-    d <- dt[treat == tr]
-    if (nrow(d) == 0) {
-      warning("RQ1 Stan: No rows after filtering treat == '", tr, "' (dataset='", ds, "'). Skipping.")
-      next
-    }
+    if (should_skip(
+      paths = c(f_fit, f_pid, f_seq),
+      cfg   = cfg,
+      type  = "model",
+      label = paste0("RQ1 Stan (", ds, "/", tr, "/", tag, ")")
+    )) return(invisible(NULL))
     
-    d[, y := as.integer(!is.na(stake) & stake > 0)]
+    if (nrow(d) == 0) return(invisible(NULL))
     
     pid_levels <- sort(unique(d$pid))
     seq_levels <- sort(unique(d$seq))
-    
     stopifnot(length(seq_levels) == 64L)
     
     d[, pid_i := match(pid, pid_levels)]
@@ -128,12 +61,13 @@ rq1_stan <- function(cfg) {
       N   = length(pid_levels),
       S   = length(seq_levels),
       T   = nrow(d),
-      pid = d$pid_i,
-      sid = d$sid_s,
-      y   = d$y
+      pid = as.integer(d$pid_i),
+      sid = as.integer(d$sid_s),
+      y   = as.integer(d$y)
     )
     
-    msg("RQ1 Stan: fitting treatment=", tr, " | N=", data_list$N, " | S=", data_list$S, " | T=", data_list$T)
+    msg("RQ1 Stan: fitting tr=", tr, " tag=", tag,
+        " | N=", data_list$N, " | S=", data_list$S, " | T=", data_list$T)
     
     fit <- rstan::sampling(
       sm,
@@ -142,29 +76,88 @@ rq1_stan <- function(cfg) {
       warmup = warmup_val,
       chains = chains_val,
       seed = seed,
-      control = list(
-        adapt_delta = adapt_delta_val,
-        max_treedepth = treedepth_val
-      )
+      control = list(adapt_delta = adapt_delta_val, max_treedepth = treedepth_val)
     )
     
     saveRDS(fit, f_fit)
-    saveRDS(pid_levels, f_pid_levels)
-    saveRDS(seq_levels, f_seq_levels)
+    saveRDS(pid_levels, f_pid)
+    saveRDS(seq_levels, f_seq)
     
-    msg("Saved:", f_fit)
-    msg("Saved:", f_pid_levels)
-    msg("Saved:", f_seq_levels)
-    
-    outputs[[tr]] <- list(
-      fit_file = f_fit,
-      pid_levels_file = f_pid_levels,
-      seq_levels_file = f_seq_levels,
-      N = data_list$N,
-      S = data_list$S,
-      T = data_list$T
-    )
+    msg("Saved: ", f_fit)
+    invisible(list(fit = f_fit, pid = f_pid, seq = f_seq))
   }
   
-  invisible(outputs)
+  # ----------------------------
+  # PASS 1: full sample (per treatment)
+  # ----------------------------
+  for (tr in tr_vec) {
+    d_full <- dt[treat == tr]
+    if (nrow(d_full) == 0) next
+    fit_one(d_full, tr, tag = "full")
+  }
+  
+  # ----------------------------
+  # PASS 2: confirmatory subset (only where betting_normative == TRUE)
+  # If confirmatory pid set == full pid set, copy full artifacts -> conf.
+  # ----------------------------
+  tau_main <- as.numeric(design$a_flags$tau[1])   # first = main
+  tau_nm <- gsub("\\.", "", sprintf("%.2f", tau_main))
+  
+  for (tr in tr_vec) {
+    
+    # run CONF only where benchmark is "betting is optimal"
+    if (!isTRUE(design$a_flags$betting_normative[[tr]])) next
+    
+    f_rds_flags <- file.path(mod_dir, paste0("a_star_pid_flags_", tr, ".rds"))
+    stopifnot(file.exists(f_rds_flags))
+    
+    flags <- readRDS(f_rds_flags)
+    stopifnot(is.list(flags), !is.null(flags$pid_sets))
+    
+    nm_keep <- paste0("pid_keep_tau", tau_nm)
+    stopifnot(nm_keep %in% names(flags$pid_sets))
+    
+    keep_pid <- as.character(flags$pid_sets[[nm_keep]])
+    
+    # full pid set in this treatment (based on master)
+    full_pid <- sort(unique(dt[treat == tr, pid]))
+    keep_pid <- sort(unique(keep_pid))
+    
+    # file targets
+    f_fit_full <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, "_full.rds"))
+    f_pid_full <- file.path(mod_dir, paste0("rq1_pid_levels_",  tr, "_full.rds"))
+    f_seq_full <- file.path(mod_dir, paste0("rq1_seq_levels_",  tr, "_full.rds"))
+    
+    f_fit_conf <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, "_conf.rds"))
+    f_pid_conf <- file.path(mod_dir, paste0("rq1_pid_levels_",  tr, "_conf.rds"))
+    f_seq_conf <- file.path(mod_dir, paste0("rq1_seq_levels_",  tr, "_conf.rds"))
+    
+    # if identical, copy full -> conf (unless conf artifacts should be skipped)
+    if (identical(full_pid, keep_pid)) {
+      
+      if (should_skip(
+        paths = c(f_fit_conf, f_pid_conf, f_seq_conf),
+        cfg   = cfg,
+        type  = "model",
+        label = paste0("RQ1 Stan (", ds, "/", tr, "/conf copy)")
+      )) next
+      
+      stopifnot(file.exists(f_fit_full), file.exists(f_pid_full), file.exists(f_seq_full))
+      
+      ok1 <- file.copy(f_fit_full, f_fit_conf, overwrite = TRUE)
+      ok2 <- file.copy(f_pid_full, f_pid_conf, overwrite = TRUE)
+      ok3 <- file.copy(f_seq_full, f_seq_conf, overwrite = TRUE)
+      stopifnot(ok1, ok2, ok3)
+      
+      msg("RQ1 Stan: conf subset == full for tr=", tr, " -> copied full artifacts to conf.")
+      next
+    }
+    
+    # otherwise: fit on subset
+    d_conf <- dt[treat == tr & pid %in% keep_pid]
+    if (nrow(d_conf) == 0) next
+    fit_one(d_conf, tr, tag = "conf")
+  }
+  
+  invisible(TRUE)
 }

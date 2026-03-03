@@ -15,7 +15,7 @@
 //   up_i ~ Normal(0, sup),  bp_s ~ Normal(0, sbp) centered
 //
 // Priors:
-//   a0, ap ~ Normal(0, 1.5)
+//   a0, ap ~ Normal(0, 1)
 //   su0, sb0, sup, sbp ~ HalfNormal(0, 1) via <lower=0> normal(0,1)
 //   shape ~ Gamma(2, 0.1)
 //
@@ -31,6 +31,7 @@ data {
   int<lower=1,upper=N> pid[T];
   int<lower=1,upper=S> sid[T];
   vector<lower=0>[T] y;
+  int<lower=0,upper=1> is_zero[T];
 }
 
 parameters {
@@ -62,8 +63,8 @@ transformed parameters {
 
 model {
   // priors
-  a0  ~ normal(0, 1.5);
-  ap  ~ normal(0, 1.5);
+  a0  ~ normal(0, 1);
+  ap  ~ normal(0, 1);
 
   su0 ~ normal(0, 1);
   sb0 ~ normal(0, 1);
@@ -78,9 +79,9 @@ model {
   shape ~ gamma(2, 0.1);
 
   // likelihood
-  for (t in 1:T) {
+    for (t in 1:T) {
     real pi0 = inv_logit(a0 + u0[pid[t]] + b0[sid[t]]);
-    if (y[t] == 0) {
+    if (is_zero[t] == 1) {
       target += bernoulli_lpmf(1 | pi0);
     } else {
       real mu_pos = exp(ap + up[pid[t]] + bp[sid[t]]);

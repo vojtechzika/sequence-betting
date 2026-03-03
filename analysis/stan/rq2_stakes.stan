@@ -13,7 +13,7 @@
 //   b_s ~ Normal(0, sigma_s) with sum-to-zero via centering
 //
 // Priors:
-//   alpha ~ Normal(0,1.5)
+//   alpha ~ Normal(0,1)
 //   sigma, sigma_u, sigma_s ~ HalfNormal(0,1) via <lower=0>
 //
 // Generated quantities:
