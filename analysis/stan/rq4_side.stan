@@ -61,26 +61,48 @@ model {
 }
 
 generated quantities {
-  vector[S] mu_h;
-  real hbar;
-  vector[N] mu_h_i;
+  vector[S] mu_h;           // population mean per sequence: E_u logistic(alpha + u + beta_s)
+  real hbar;                // population baseline:          E_u logistic(alpha + u)
+  vector[N] mu_h_i;         // participant baselines: logistic(alpha + u_i)
 
-  // participant baseline (beta_s = 0)
-  for (i in 1:N) {
+  // OPTIONAL sanity/traceability:
+  vector[S] mu_h_sample;    // sample mean over realized u_i: mean_i logistic(alpha + u_i + beta_s)
+  real hbar_sample;         // sample baseline:               mean_i logistic(alpha + u_i)
+
+  // participant-specific baselines
+  for (i in 1:N)
     mu_h_i[i] = inv_logit(alpha + u[i]);
-  }
 
-  // baseline averaged across participants
+  // sample-based summaries (exact given u)
   {
-    real acc = 0;
-    for (i in 1:N) acc += mu_h_i[i];
-    hbar = acc / N;
+    real acc0 = 0;
+    for (i in 1:N) acc0 += inv_logit(alpha + u[i]);
+    hbar_sample = acc0 / N;
+
+    for (s in 1:S) {
+      real accs = 0;
+      for (i in 1:N) accs += inv_logit(alpha + u[i] + beta[s]);
+      mu_h_sample[s] = accs / N;
+    }
   }
 
-  // per-sequence population mean
-  for (s in 1:S) {
-    real acc = 0;
-    for (i in 1:N) acc += inv_logit(alpha + u[i] + beta[s]);
-    mu_h[s] = acc / N;
+  // population-based summaries via MC with common random numbers
+  {
+    int M = 2000;
+    array[M] real u_new;
+    real acc0 = 0;
+
+    for (m in 1:M) {
+      u_new[m] = normal_rng(0, sigma_u);
+      acc0 += inv_logit(alpha + u_new[m]);
+    }
+    hbar = acc0 / M;
+
+    for (s in 1:S) {
+      real accs = 0;
+      for (m in 1:M) accs += inv_logit(alpha + u_new[m] + beta[s]);
+      mu_h[s] = accs / M;
+    }
   }
 }
+

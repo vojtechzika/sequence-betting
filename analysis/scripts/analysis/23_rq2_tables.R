@@ -53,8 +53,11 @@ rq2_tables <- function(cfg) {
       # STRICT schema (prepared is already betting-only + min_bets-filtered + finite z)
       required_cols <- c("pid","seq","delta_bar","sd_star","n_bets")
       if (!all(required_cols %in% names(prep))) {
-        stop("Prepared file missing required columns (", paste(setdiff(required_cols, names(prep)), collapse = ", "),
-             "). Rerun rq2_stan(cfg) after deleting artifacts.")
+        stop(
+          "Prepared file missing required columns (",
+          paste(setdiff(required_cols, names(prep)), collapse = ", "),
+          "). Rerun rq2_stan(cfg) after deleting artifacts."
+        )
       }
       
       prep[, pid := as.character(pid)]
@@ -130,14 +133,34 @@ rq2_tables <- function(cfg) {
         seq_tbl[, (nmO) := apply(mu_s_draws, 2, function(x) mean(x >  rho))]
       }
       
-      # simple directional label using main rho
+      # ---- prereg-consistent directional label using main rho ----
       colU_main <- paste0("U_a_rho_", rho_nm_main)
       colO_main <- paste0("O_a_rho_", rho_nm_main)
-      seq_tbl[, calib_label :=
-                fifelse(get(colU_main) >= 0.95, "under_strong",
-                        fifelse(get(colU_main) >= 0.80, "under_moderate",
-                                fifelse(get(colO_main) >= 0.95, "over_strong",
-                                        fifelse(get(colO_main) >= 0.80, "over_moderate", "neutral"))))]
+      
+      U_main <- seq_tbl[[colU_main]]
+      O_main <- seq_tbl[[colO_main]]
+      
+      seq_tbl[, calib_label := {
+        lab <- rep("neutral", .N)
+        
+        # choose direction when informative; if both informative pick larger (tie -> under)
+        pick_under <- (U_main >= 0.50 & O_main < 0.50) |
+          (U_main >= 0.50 & O_main >= 0.50 & U_main >= O_main)
+        pick_over  <- (O_main >= 0.50 & U_main < 0.50) |
+          (U_main >= 0.50 & O_main >= 0.50 & O_main >  U_main)
+        
+        # under tiers: strong/moderate/weak
+        lab[pick_under & U_main >= 0.95] <- "under_strong"
+        lab[pick_under & U_main >= 0.80 & U_main < 0.95] <- "under_moderate"
+        lab[pick_under & U_main >= 0.50 & U_main < 0.80] <- "under_weak"
+        
+        # over tiers: strong/moderate/weak
+        lab[pick_over  & O_main >= 0.95] <- "over_strong"
+        lab[pick_over  & O_main >= 0.80 & O_main < 0.95] <- "over_moderate"
+        lab[pick_over  & O_main >= 0.50 & O_main < 0.80] <- "over_weak"
+        
+        lab
+      }]
       
       setorder(seq_tbl, sequence)
       
@@ -176,13 +199,34 @@ rq2_tables <- function(cfg) {
         part_tbl[, (nmO) := apply(mu_i_draws, 2, function(x) mean(x >  rho))]
       }
       
+      # ---- prereg-consistent directional label using main rho ----
       colU_i_main <- paste0("U_i_rho_", rho_nm_main)
       colO_i_main <- paste0("O_i_rho_", rho_nm_main)
-      part_tbl[, calib_label :=
-                 fifelse(get(colU_i_main) >= 0.95, "under_solid",
-                         fifelse(get(colU_i_main) >= 0.90, "under_likely",
-                                 fifelse(get(colO_i_main) >= 0.95, "over_solid",
-                                         fifelse(get(colO_i_main) >= 0.90, "over_likely", "neutral"))))]
+      
+      U_i_main <- part_tbl[[colU_i_main]]
+      O_i_main <- part_tbl[[colO_i_main]]
+      
+      part_tbl[, calib_label := {
+        lab <- rep("neutral", .N)
+        
+        # choose direction when informative; if both informative pick larger (tie -> under)
+        pick_under <- (U_i_main >= 0.75 & O_i_main < 0.75) |
+          (U_i_main >= 0.75 & O_i_main >= 0.75 & U_i_main >= O_i_main)
+        pick_over  <- (O_i_main >= 0.75 & U_i_main < 0.75) |
+          (U_i_main >= 0.75 & O_i_main >= 0.75 & O_i_main >  U_i_main)
+        
+        # under tiers: solid/likely/leaning
+        lab[pick_under & U_i_main >= 0.95] <- "under_solid"
+        lab[pick_under & U_i_main >= 0.90 & U_i_main < 0.95] <- "under_likely"
+        lab[pick_under & U_i_main >= 0.75 & U_i_main < 0.90] <- "under_leaning"
+        
+        # over tiers: solid/likely/leaning
+        lab[pick_over  & O_i_main >= 0.95] <- "over_solid"
+        lab[pick_over  & O_i_main >= 0.90 & O_i_main < 0.95] <- "over_likely"
+        lab[pick_over  & O_i_main >= 0.75 & O_i_main < 0.90] <- "over_leaning"
+        
+        lab
+      }]
       
       setorder(part_tbl, pid)
       

@@ -7,6 +7,7 @@ run_analysis <- function(cfg) {
   # --- Load Sources --- #
   source(here::here("scripts", "analysis", "01_descriptive_participants.R"))
   source(here::here("scripts", "analysis", "02_descriptive_sequences.R"))
+  source(here::here("scripts", "analysis", "03_drift_check.R"))
   
   source(here::here("scripts", "analysis", "11_rq1_stan.R"))
   source(here::here("scripts", "analysis", "12_rq1_diagnostics.R"))
@@ -20,13 +21,13 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "32_rq3_diagnostics.R"))
   source(here::here("scripts", "analysis", "33_rq3_tables.R"))
  
-  # source(here::here("scripts", "analysis", "41_rq4_stan.R"))
-  # source(here::here("scripts", "analysis", "42_rq4_sequences.R"))
-  # source(here::here("scripts", "analysis", "43_rq4_participants.R"))
-  # 
-  # source(here::here("scripts", "analysis", "51_ex1_1_anchors.R"))
-  # source(here::here("scripts", "analysis", "52_ex1_1_sequences.R"))
-  # source(here::here("scripts", "analysis", "53_ex1_1_participants.R"))
+  source(here::here("scripts", "analysis", "41_rq4_stan.R"))
+  source(here::here("scripts", "analysis", "42_rq4_diagnostics.R"))
+  source(here::here("scripts", "analysis", "43_rq4_tables.R"))
+   
+  source(here::here("scripts", "analysis", "51_ex1_1_anchors.R"))
+  source(here::here("scripts", "analysis", "52_ex1_1_diagnostics.R"))
+  source(here::here("scripts", "analysis", "53_ex1_1_tables.R"))
   # source(here::here("scripts", "analysis", "54_ex1_2_stan_ghi.R"))
   # source(here::here("scripts", "analysis", "55_ex1_3_ghi_vs_pure.R"))
   # 
@@ -39,6 +40,7 @@ run_analysis <- function(cfg) {
   # ----------------------------
   descriptive_participants(cfg)
   descriptive_sequences(cfg)
+  drift_check(cfg)
   
   # ----------------------------
   # 10 Space: RQ1
@@ -64,16 +66,16 @@ run_analysis <- function(cfg) {
    # ----------------------------
    # 40 Space: RQ4
    # ----------------------------
-   # rq4_stan(cfg)
-   # rq4_sequences(cfg)
-   # rq4_participants(cfg)
+   rq4_stan(cfg)
+   rq4_diagnostics(cfg)
+   rq4_tables(cfg)
    
    # ----------------------------
    # 50 Space: EX1
    # ----------------------------
-   # ex1_1_anchors(cfg)
-   # ex1_1_sequences(cfg)
-   # ex1_1_participants(cfg)
+   ex1_1_anchors(cfg)
+   ex1_1_diagnostics(cfg)
+   ex1_1_tables(cfg)
    # ex1_2_stan_ghi(cfg)
    # ex1_3_ghi_vs_pure(cfg)
    

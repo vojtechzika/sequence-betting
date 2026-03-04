@@ -51,7 +51,7 @@ model {
   sigma   ~ normal(0, 1);
 
   u_raw ~ normal(0, 1);
-  b_raw ~ normal(0, sigma_s);
+  b_raw ~ normal(0, 1);
 
   for (t in 1:T) {
     y[t] ~ normal(alpha + u[pid[t]] + b[sid[t]], sigma);

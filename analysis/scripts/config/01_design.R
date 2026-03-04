@@ -5,11 +5,14 @@
 
 design_cfg <- function() {
   
+  
+  
   list(
     
     # --------------------------------------------------------
     # Core sequence design
     # --------------------------------------------------------
+    
     seq = list(
       endowment = 100L,
       xmin      = 0.01,
@@ -19,8 +22,23 @@ design_cfg <- function() {
       treatments = list(
         m25 = 2.5,
         m19 = 1.9
+      ),
+      
+      side_labels = list(
+        heads = "H",
+        tails = "O",
+        nobet = "NB"
+      ),
+    
+      anchor_labels = list(
+        pure_heads = "HHHHHH",
+        pure_tails = "OOOOOO"
       )
+    
     ),
+   
+    
+    
     
     # --------------------------------------------------------
     # MPL risk elicitation
@@ -65,6 +83,14 @@ design_cfg <- function() {
     # --------------------------------------------------------
     rq3 = list(
       rho = c(0.05, 0.03, 0.08)
+    ),
+    
+    # --------------------------------------------------------
+    # RQ4 (Side choice on betting trials)
+    # --------------------------------------------------------
+    rq4 = list(
+      delta = c(0.05, 0.03, 0.08),   # first = main (tolerance band around hbar)
+      ppc_overdisp_cut = 0.95        # prereg trigger cutoff for Beta–Binomial robustness
     ),
     
     # --------------------------------------------------------

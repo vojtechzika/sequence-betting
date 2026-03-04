@@ -30,6 +30,11 @@ model_cfg <- function() {
       rq3 = list(
         pilot = list(iter=1500, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
         main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
+      ),
+      
+      rq4 = list(
+        pilot = list(iter=1500, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
+        main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
       )
     ),
     
@@ -39,7 +44,7 @@ model_cfg <- function() {
     ppc = list(
       rq1_k = list(pilot = 300L,  main = 1000L),
       rq3_k = list(pilot = 300L,  main = 1000L),
-      
+      rq4_k = list(pilot = 300L,  main = 1000L),
       rq1_interval = c(0.05, 0.95)
     ),
     
