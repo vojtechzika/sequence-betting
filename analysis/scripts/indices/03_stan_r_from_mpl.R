@@ -22,6 +22,20 @@ stan_r_from_mpl <- function(cfg) {
   model  <- cfg$model
   
   # ----------------------------
+  # MPL labels from design
+  # ----------------------------
+  label_safe  <- toupper(trimws(as.character(design$mpl$label_safe)))
+  label_risky <- toupper(trimws(as.character(design$mpl$label_risky)))
+  
+  stopifnot(
+    length(label_safe) == 1L,
+    length(label_risky) == 1L,
+    nzchar(label_safe),
+    nzchar(label_risky),
+    label_safe != label_risky
+  )
+  
+  # ----------------------------
   # Files
   # ----------------------------
   stan_file <- here::here("stan", "holt-laurie-model.stan")
@@ -154,8 +168,37 @@ stan_r_from_mpl <- function(cfg) {
     )
     
     long[, row := as.integer(sub("^c", "", row))]
+    
     long[, choice := toupper(trimws(as.character(choice)))]
-    long[, y := fifelse(choice == "A", 1L, 0L)]
+    
+    # warn on unexpected non-missing labels
+    bad_labels <- setdiff(unique(na.omit(long$choice)), c(label_safe, label_risky))
+    if (length(bad_labels) > 0) {
+      warning(
+        "Unexpected MPL choice label(s) detected in dataset '", ds, "'",
+        if (nzchar(tag)) paste0(" / treatment '", tag, "'") else "",
+        ": ", paste(bad_labels, collapse = ", "),
+        ". Expected labels are: ", label_safe, " (safe) and ", label_risky, " (risky)."
+      )
+    }
+    
+    # code explicitly; leave mismatches as NA instead of silently forcing to risky
+    long[, y := fifelse(
+      choice == label_safe,  1L,
+      fifelse(choice == label_risky, 0L, NA_integer_)
+    )]
+    
+    # fail if any non-missing original choices could not be coded
+    bad_rows <- long[!is.na(choice) & is.na(y)]
+    if (nrow(bad_rows) > 0) {
+      stop(
+        "Could not map some MPL choices to safe/risky labels in dataset '", ds, "'",
+        if (nzchar(tag)) paste0(" / treatment '", tag, "'") else "",
+        ". Example uncoded values: ",
+        paste(head(unique(bad_rows$choice), 5), collapse = ", ")
+      )
+    }
+    
     
     pid_levels <- sort(unique(long$pid))
     long[, uid := match(pid, pid_levels)]

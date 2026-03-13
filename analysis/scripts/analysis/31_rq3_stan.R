@@ -90,27 +90,6 @@ rq3_stan <- function(cfg) {
   dt[is.na(stake), stake := 0]
   
   # ----------------------------
-  # Load shared r draws (pooled)
-  # ----------------------------
-  f_r_all <- file.path(mod_dir, "mpl_r_draws.rds")
-  stopifnot(file.exists(f_r_all))
-  
-  r_all <- readRDS(f_r_all)
-  stopifnot(is.list(r_all), all(c("pid", "r_draws") %in% names(r_all)))
-  stopifnot(is.matrix(r_all$r_draws))
-  
-  pid_r_levels <- as.character(r_all$pid)
-  r_draws_all  <- r_all$r_draws
-  K_all <- nrow(r_draws_all)
-  stopifnot(K_all >= 10L)
-  
-  # subsample draws (fixed per run)
-  Krep <- min(rq3_krep, K_all)
-  set.seed(seed)
-  k_idx <- sort(sample.int(K_all, Krep, replace = FALSE))
-  msg("RQ3 propagation: using Krep=", Krep, " draws out of K_all=", K_all)
-  
-  # ----------------------------
   # Compile Stan once
   # ----------------------------
   sm <- rstan::stan_model(stan_file)
@@ -136,6 +115,28 @@ rq3_stan <- function(cfg) {
     stopifnot(tr %in% names(m_map))
     m <- as.numeric(m_map[[tr]])
     stopifnot(is.finite(m), m > 1)
+    
+    # ---- load treatment-specific r draws ----
+    f_r <- file.path(mod_dir, paste0("mpl_r_draws_", tr, ".rds"))
+    stopifnot(file.exists(f_r))
+    
+    r_obj <- readRDS(f_r)
+    stopifnot(is.list(r_obj), all(c("pid", "r_draws") %in% names(r_obj)))
+    stopifnot(is.matrix(r_obj$r_draws))
+    
+    pid_r_levels <- as.character(r_obj$pid)
+    r_draws_all  <- r_obj$r_draws
+    K_all <- nrow(r_draws_all)
+    stopifnot(K_all >= 10L)
+    
+    # fixed draw subsample within treatment
+    Krep <- min(rq3_krep, K_all)
+    set.seed(seed)
+    k_idx <- sort(sample.int(K_all, Krep, replace = FALSE))
+    
+    msg("RQ3 propagation: tr=", tr,
+        " | using Krep=", Krep,
+        " draws out of K_all=", K_all)
     
     # ---- load treatment-specific a* draws (same pattern as RQ2) ----
     f_a <- file.path(mod_dir, paste0("a_star_draws_", tr, ".rds"))
@@ -163,7 +164,10 @@ rq3_stan <- function(cfg) {
     # map pid -> draw columns
     idx_r <- match(pid_levels_fit, pid_r_levels)
     idx_a <- match(pid_levels_fit, pid_a_levels)
-    if (anyNA(idx_r)) stop("RQ3: pid missing from r cache (mpl_r_draws.rds) in tr='", tr, "' tag='", tag, "'.")
+    if (anyNA(idx_r)) {
+      stop("RQ3: pid missing from treatment-specific r cache (mpl_r_draws_", tr,
+           ".rds) in tag='", tag, "'.")
+    }
     if (anyNA(idx_a)) stop("RQ3: pid missing from a* cache (a_star_draws_", tr, ".rds) in tag='", tag, "'.")
     
     r_draws <- r_draws_all[k_idx, idx_r, drop = FALSE]  # Krep x N_fit

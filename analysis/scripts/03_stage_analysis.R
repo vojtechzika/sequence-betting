@@ -28,12 +28,18 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "51_ex1_1_anchors.R"))
   source(here::here("scripts", "analysis", "52_ex1_1_diagnostics.R"))
   source(here::here("scripts", "analysis", "53_ex1_1_tables.R"))
-  # source(here::here("scripts", "analysis", "54_ex1_2_stan_ghi.R"))
-  # source(here::here("scripts", "analysis", "55_ex1_3_ghi_vs_pure.R"))
-  # 
-  # source(here::here("scripts", "analysis", "61_ex2_stan.R"))
-  # source(here::here("scripts", "analysis", "62_ex2_summary.R"))
-  # source(here::here("scripts", "analysis", "63_ex2_participants.R"))
+  source(here::here("scripts", "analysis", "54_ex1_2_stan_ghi.R"))
+  source(here::here("scripts", "analysis", "55_ex1_3_ghi_vs_pure.R"))
+   
+  source(here::here("scripts", "analysis", "61_ex2_stan.R"))
+  source(here::here("scripts", "analysis", "62_ex2_diagnostics.R"))
+  source(here::here("scripts", "analysis", "63_ex2_tables.R"))
+  
+  source(here::here("scripts", "analysis", "71_ex3_contrasts.R"))
+  source(here::here("scripts", "analysis", "72_ex3_rq2_implied_p.R"))
+  source(here::here("scripts", "analysis", "73_ex3_implied_r.R"))
+
+  source(here::here("scripts", "analysis", "81_ex4_similarity.R"))
   
   # ----------------------------
   # 00 Space: Descriptives
@@ -76,17 +82,28 @@ run_analysis <- function(cfg) {
    ex1_1_anchors(cfg)
    ex1_1_diagnostics(cfg)
    ex1_1_tables(cfg)
-   # ex1_2_stan_ghi(cfg)
-   # ex1_3_ghi_vs_pure(cfg)
+   ex1_2_stan_ghi(cfg)
+   ex1_3_ghi_vs_pure(cfg)
    
    # ----------------------------
    # 60 Space: EX2
    # ----------------------------
-   # ex2_stan(cfg)
-   # ex2_summary(cfg)
-   # ex2_participants(cfg)
+   ex2_stan(cfg)
+   #ex2_diagnostics(cfg)
+   ex2_tables(cfg)
    
+   # ----------------------------
+   # 70 Space: EX3
+   # ----------------------------
+   ex3_contrasts(cfg)
+   ex3_rq2_implied_p(cfg)
+   ex3_implied_r(cfg)
    
+   # ----------------------------
+   # 80 Space: EX4
+   # ----------------------------
+   ex4_similarity(cfg)
+
   
   msg("\nAnalysis phase completed for:", cfg$run$dataset, "\n")
 }

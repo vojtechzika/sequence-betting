@@ -1,6 +1,9 @@
 {% extends "global/Page.html" %}
 {% block title %}{% endblock %}
 {% block content %}
+
+
+{% if C.FIXATION_X %}
 <style>
   html, body { height:100%; overflow:hidden; }
   body, .otree-body, .otree-content { background:#ffffff !important; }  /* white */
@@ -21,6 +24,14 @@
     <line x1="20"  y1="120" x2="220" y2="120"></line>
   </svg>
 </div>
+
+{% else %}
+
+<div>&nbsp;</div>
+
+{% endif %}
+
+
 
 <script>
   setTimeout(function() {

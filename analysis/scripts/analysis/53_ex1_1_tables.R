@@ -40,6 +40,8 @@
 # Outputs per treatment:
 #   data/clean/<ds>/output/ex1_1_<tr>_sequences.csv
 #   data/clean/<ds>/output/ex1_1_<tr>_participants.csv
+#   data/clean/<ds>/models/ex1_1_<tr>_sequences.rds
+#   data/clean/<ds>/models/ex1_1_<tr>_participants.rds
 # ============================================================
 
 suppressPackageStartupMessages({
@@ -78,6 +80,7 @@ ex1_1_tables <- function(cfg) {
   mod_dir <- path_mod_ds(ds)
   out_dir <- path_out_ds(ds)
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+  dir.create(mod_dir, showWarnings = FALSE, recursive = TRUE)
   
   infile <- file.path(path_clean_ds(ds), "master_sequences.csv")
   dt <- fread(infile, encoding = "UTF-8")
@@ -129,9 +132,9 @@ ex1_1_tables <- function(cfg) {
     # ----------------------------
     # Load RQ4 fit + levels (per treatment)
     # ----------------------------
-    f_fit <- file.path(mod_dir, paste0("rq4_fit_sequences_", tr, ".rds"))
-    f_seq <- file.path(mod_dir, paste0("rq4_seq_levels_", tr, ".rds"))
-    f_pid <- file.path(mod_dir, paste0("rq4_pid_levels_", tr, ".rds"))
+    f_fit <- file.path(mod_dir, paste0("rq4_fit_sequences_", tr, "_full.rds"))
+    f_seq <- file.path(mod_dir, paste0("rq4_seq_levels_", tr, "_full.rds"))
+    f_pid <- file.path(mod_dir, paste0("rq4_pid_levels_", tr, "_full.rds"))
     
     fit <- readRDS(f_fit)
     seq_levels <- as.character(readRDS(f_seq))
@@ -185,8 +188,13 @@ ex1_1_tables <- function(cfg) {
     # ----------------------------
     # Base output tables
     # ----------------------------
-    seq_tbl <- data.table(sequence = seq_levels, n_bets = as.integer(n_sid))
+    seq_tbl  <- data.table(sequence = seq_levels, n_bets = as.integer(n_sid))
     part_tbl <- data.table(pid = pid_levels, n_bets = as.integer(n_pid))
+    
+    # placeholders for saved draws at main eps
+    chi_s_draws_main <- NULL
+    chi_i_draws_main <- NULL
+    pid_levels_main  <- NULL
     
     # ----------------------------
     # For each eps: compute draw-level weights and chi draws
@@ -224,8 +232,6 @@ ex1_1_tables <- function(cfg) {
       diff_w <- wH - wT   # K x S
       
       # ---- compute chi_s^(k) and chi_i^(k) efficiently via rowsum per draw ----
-      # Pre-allocate summaries without storing full KxS or KxNp if you want;
-      # here we store for correctness/readability (pilot sizes OK).
       chi_s_draws <- matrix(NA_real_, nrow = K, ncol = S)
       chi_i_draws <- matrix(NA_real_, nrow = K, ncol = Np)
       
@@ -239,7 +245,6 @@ ex1_1_tables <- function(cfg) {
         
         # sequences
         sum_by_sid <- rowsum(z_k, group = sid_vec, reorder = FALSE)
-        # rowsum returns rows in sorted unique(group) order
         sid_uniq <- as.integer(rownames(sum_by_sid))
         chi_s_draws[k, sid_uniq] <- as.numeric(sum_by_sid[, 1]) / n_sid[sid_uniq]
         
@@ -266,7 +271,6 @@ ex1_1_tables <- function(cfg) {
       }
       
       # ---- participant summaries ONLY for MAIN eps (prereg tables focus on main eps) ----
-      # If you want participant sensitivity by eps, remove this if-guard and mirror the seq logic.
       if (isTRUE(all.equal(eps, eps_main))) {
         part_tbl[, chi_median := apply(chi_i_draws, 2, median, na.rm = TRUE)]
         part_tbl[, chi_mean   := apply(chi_i_draws, 2, mean,   na.rm = TRUE)]
@@ -288,6 +292,10 @@ ex1_1_tables <- function(cfg) {
         HHm <- part_tbl[[paste0("HH_delta_", suf_dm)]]
         Gm  <- part_tbl[[paste0("G_delta_",  suf_dm)]]
         part_tbl[, class := mapply(label_pid, HH = HHm, G = Gm)]
+        
+        chi_s_draws_main <- chi_s_draws
+        chi_i_draws_main <- chi_i_draws
+        pid_levels_main  <- pid_levels
       }
     }
     
@@ -313,7 +321,40 @@ ex1_1_tables <- function(cfg) {
     msg("Saved: ", f_seq)
     msg("Saved: ", f_pid)
     
-    outputs[[tr]] <- list(sequences = seq_tbl, participants = part_tbl)
+    # --- save sequence chi draws for EX4 ---
+    seq_rds <- list(
+      dataset    = ds,
+      treatment  = tr,
+      seq_levels = seq_levels,
+      eps_main   = eps_main,
+      delta_main = delta_main,
+      chi_draws  = chi_s_draws_main
+    )
+    
+    f_seq_rds <- file.path(mod_dir, paste0("ex1_1_", tr, "_sequences.rds"))
+    saveRDS(seq_rds, f_seq_rds)
+    
+    msg("Saved: ", f_seq_rds)
+    
+    # --- save participant chi draws for EX1.2 / EX4 ---
+    part_rds <- list(
+      dataset    = ds,
+      treatment  = tr,
+      pid_levels = pid_levels_main,
+      eps_main   = eps_main,
+      delta_main = delta_main,
+      chi_draws  = chi_i_draws_main
+    )
+    
+    f_pid_rds <- file.path(mod_dir, paste0("ex1_1_", tr, "_participants.rds"))
+    saveRDS(part_rds, f_pid_rds)
+    
+    msg("Saved: ", f_pid_rds)
+    
+    outputs[[tr]] <- list(
+      sequences    = seq_tbl,
+      participants = part_tbl
+    )
   }
   
   invisible(outputs)

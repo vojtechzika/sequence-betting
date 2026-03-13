@@ -21,14 +21,14 @@ class Constants(BaseConstants):
     # number of binary choices between "lottery A" and "lottery B"
     # note that the number of choices determines the probabilities of high and low outcomes of lotteries "A" and "B"
     # for <num_choices = X>, the probability of outcome "high" is 1/X for the first choice, 2/X for the second, etc.
-    num_choices = 10
+    num_choices = 20
 
     # include 'certain' choice (** only applies if <variation_type = 'probability'> **)
     # if <certain_choice = True>, the binary choice with probability of the outcome "high" being equal to 1 is included
     # if <certain_choice = False>, the list only contains (<num_choices> - 1) binary decision pairs
     # note, however, that the probability of outcome "high" is set by <num_choices>, not (<num_choices> - 1), though
     # i.e., if <certain_choice = False>, the last choice implies a probability of (X - 1)/X (given <num_choices = X>)
-    certain_choice = True
+    certain_choice = False
 
     # ---------------------------------------------------------------------------------------------------------------- #
     # --- Overall Settings and Appearance --- #
@@ -75,7 +75,7 @@ class Constants(BaseConstants):
     # show instructions page
     # if <instructions = True>, a separate template "Instructions.html" is rendered prior to the task
     # if <instructions = False>, the task starts immediately (e.g. in case of printed instructions)
-    instructions = True
+    instructions = False
 
     # show results page summarizing the task's outcome including payoff information
     # if <results = True>, a separate page containing all relevant information is displayed after finishing the task

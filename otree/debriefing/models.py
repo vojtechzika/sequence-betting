@@ -17,11 +17,29 @@ class Group(BaseGroup):
 
 class Player(BasePlayer):
 
+    # --- overall risk perception ---
+
+    perceived_win_probability = models.IntegerField(
+    label=(
+        "1. Pokud byste v úloze se sekvencemi hráli 100 kol, v kolika kolech byste podle Vás vyhráli? "
+        "(0 = v žádném kole, 50 = v polovině kol, 100 = v každém kole)"
+    ),
+    min=0, max=100,
+    )
+
+    perceived_risk = models.IntegerField(
+    label=(
+        "2. Jak riskantní Vám přišlo sázení v úloze se sekvencemi? "
+        "(0 = vůbec, 10 = velmi)"
+    ),
+    min=0, max=10,
+    )
+
     # --- A) 50/50 transparency + hypothetical sequences ---
 
     belief_independence = models.IntegerField(
         label=(
-            "1. Do jaké míry jste věřil(a), že každý hod má pravděpodobnost 50 % \
+            "3. Do jaké míry jste věřil(a), že každý hod má pravděpodobnost 50 % \
             na Hlavu a 50 % na Orel bez ohledu na zobrazenou historii šesti hodů? \
             (0 = vůbec ne, 10 = zcela)"
         ),
@@ -30,38 +48,38 @@ class Player(BasePlayer):
 
     reliance_on_sequence = models.IntegerField(
         label=(
-            "2. Do jaké míry jste při rozhodování zohledňoval(a) zobrazenou historii šesti hodů, \
+            "4. Do jaké míry jste při rozhodování zohledňoval(a) zobrazenou historii šesti hodů, \
             i když jste věděl(a), že mince je spravedlivá? \
             (0 = vůbec ne, 10 = velmi silně)"
         ),
         min=0, max=10,
     )
 
-    perceived_realism_history = models.IntegerField(
-        label=(
-            "3. Do jaké míry jste vnímal(a) zobrazené historie šesti hodů jako „reálné historie“ \
-            (tj. že skutečně předcházely dalšímu hodu), oproti tomu, že šlo jen o různé možné příklady? \
-            (0 = jen možné příklady, 10 = reálná historie)"
-        ),
-        min=0, max=10,
-    )
+    # perceived_realism_history = models.IntegerField(
+    #     label=(
+    #         "5. Do jaké míry jste vnímal(a) zobrazené historie šesti hodů jako „reálné historie“ \
+    #         (tj. že skutečně předcházely dalšímu hodu), oproti tomu, že šlo jen o různé možné příklady? \
+    #         (0 = jen možné příklady, 10 = reálná historie)"
+    #     ),
+    #     min=0, max=10,
+    # )
 
     # --- B) action-seeking / engagement / fatigue ---
 
     action_seeking = models.IntegerField(
         label=(
-            "4. Jak často jste sázel(a) hlavně proto, že Vám přišlo lepší „něco udělat“ \
+            "5. Jak často jste sázel(a) hlavně proto, že Vám přišlo lepší „něco udělat“ \
             než nesázet? (0 = nikdy, 10 = velmi často)"
         ),
         min=0, max=10,
     )
 
-    enjoyment = models.IntegerField(
-        label=(
-            "5. Nakolik Vás úloha bavila? (0 = vůbec, 10 = velmi)"
-        ),
-        min=0, max=10,
-    )
+    # enjoyment = models.IntegerField(
+    #     label=(
+    #         "7. Nakolik Vás úloha bavila? (0 = vůbec, 10 = velmi)"
+    #     ),
+    #     min=0, max=10,
+    # )
 
     fatigue = models.IntegerField(
         label=(

@@ -48,8 +48,8 @@ ex1_1_anchors <- function(cfg) {
   
   for (tr in tr_vec) {
     
-    f_fit <- file.path(mod_dir, paste0("rq4_fit_sequences_", tr, ".rds"))
-    f_seq <- file.path(mod_dir, paste0("rq4_seq_levels_", tr, ".rds"))
+    f_fit <- file.path(mod_dir, paste0("rq4_fit_sequences_", tr, "_full.rds"))
+    f_seq <- file.path(mod_dir, paste0("rq4_seq_levels_", tr, "_full.rds"))
     
     fit <- readRDS(f_fit)
     seq_levels <- as.character(readRDS(f_seq))

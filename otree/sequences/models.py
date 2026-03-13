@@ -23,10 +23,11 @@ class C(BaseConstants):
     # === Blocking and Breaking ===
     NUM_BLOCKS = 4              # set to 1 for no breaks
     BREAK_SECONDS = 30          # 0 = no break screen; otherwise auto-continue after N seconds
+    LAST_BLOCK_BREAK = True     # Set True if you want to show break after the last block is completed (useful if there is a next task after the Sequence task)
 
     # Fixation cross duration in ms.
-    # If set to 0, the fixation page is skipped entirely.
-    FIXATION_MS = 500
+    FIXATION_MS = 500           # If set to 0, the fixation page is skipped entirely.
+    FIXATION_X = False          # Set True if you want to show the fixation cross. If False, only blank page appears for the FIXATION_MS time
 
     # === Custom sequences ===
     # If non-empty, overrides automatic generation.

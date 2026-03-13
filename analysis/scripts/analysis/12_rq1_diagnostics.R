@@ -100,9 +100,9 @@ rq1_diagnostics <- function(cfg) {
   
   for (tr in tr_vec) {
     
-    f_fit <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, ".rds"))
-    f_pid <- file.path(mod_dir, paste0("rq1_pid_levels_", tr, ".rds"))
-    f_seq <- file.path(mod_dir, paste0("rq1_seq_levels_", tr, ".rds"))
+    f_fit <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, "_conf.rds"))
+    f_pid <- file.path(mod_dir, paste0("rq1_pid_levels_", tr, "_conf.rds"))
+    f_seq <- file.path(mod_dir, paste0("rq1_seq_levels_", tr, "_conf.rds"))
     
     if (!file.exists(f_fit) || !file.exists(f_pid) || !file.exists(f_seq)) {
       warning("RQ1 fit check: missing Stan artifacts for tr='", tr, "'. Skipping.")

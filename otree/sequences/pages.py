@@ -160,7 +160,9 @@ class Fixation(Page):
         return C.FIXATION_MS > 0 and self.round_number <= C.NUM_ROUNDS
 
     def vars_for_template(self):
-        return dict(fixation_ms=C.FIXATION_MS)
+        return dict(
+            fixation_ms=C.FIXATION_MS
+        )
 
 
 class Trial(Page):
@@ -259,7 +261,7 @@ class Trial(Page):
         else:
             p.win = (p.side == realized)
             if p.win:
-                earnings = (C.ENDOWMENT - p.stake) + m * p.stake
+                earnings = C.ENDOWMENT + (m - 1) * p.stake
             else:
                 earnings = C.ENDOWMENT - p.stake
 
@@ -268,12 +270,19 @@ class Trial(Page):
 
 
 class Break(Page):
-    timer_text = ''  # hides oTree's yellow countdown box
-    
+    timer_text = ''
+
     def is_displayed(self):
-        if C.BREAK_SECONDS <= 0 or self.round_number >= C.NUM_ROUNDS:
+        if C.BREAK_SECONDS <= 0:
             return False
+
         man = self.participant.vars['manifest']
+
+        # Final round: optionally show a last break before the next task
+        if self.round_number == C.NUM_ROUNDS:
+            return C.LAST_BLOCK_BREAK
+
+        # Otherwise: show break if next round starts a new block
         return man[self.round_number]['block'] != man[self.round_number - 1]['block']
 
     def get_timeout_seconds(self):
@@ -284,6 +293,7 @@ class Break(Page):
             blk=self.player.block,
             n_blocks=C.NUM_BLOCKS,
             break_seconds=C.BREAK_SECONDS,
+            last_block_break=C.LAST_BLOCK_BREAK,
         )
 
 

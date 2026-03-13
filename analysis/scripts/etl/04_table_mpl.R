@@ -9,21 +9,19 @@ make_mpl_table <- function(cfg) {
   
   dt <- data.table::fread(infile, encoding = "UTF-8")
   
+  # number of MPL rows (e.g. cfg$design$mpl$K if defined there)
+  K <- cfg$design$mpl$K
+  
   keep <- c(
-     "participant.code",
+    "participant.code",
+    
+    # choices 1..K
+    paste0("mpl.1.player.choice_", seq_len(K))
+    
+    # optional fields
     # "mpl.1.player.id_in_group",
     # "mpl.1.player.role",
     # "mpl.1.player.payoff",
-    "mpl.1.player.choice_1",
-    "mpl.1.player.choice_2",
-    "mpl.1.player.choice_3",
-    "mpl.1.player.choice_4",
-    "mpl.1.player.choice_5",
-    "mpl.1.player.choice_6",
-    "mpl.1.player.choice_7",
-    "mpl.1.player.choice_8",
-    "mpl.1.player.choice_9",
-    "mpl.1.player.choice_10"
     # "mpl.1.player.random_draw",
     # "mpl.1.player.choice_to_pay",
     # "mpl.1.player.option_to_pay",
@@ -55,8 +53,8 @@ make_mpl_table <- function(cfg) {
     "mpl.1.player.switching_row"   = "switch_row",
     "mpl.1.player.round_earnings"  = "earn"
   )
-  # choices 1..10
-  for (i in 1:10) {
+  # choices 1..K
+  for (i in seq_len(K)) {
     rename_map[paste0("mpl.1.player.choice_", i)] <- paste0("c", i)
   }
   

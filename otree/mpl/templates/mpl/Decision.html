@@ -31,11 +31,55 @@
     {% endif %}
 {% endblock %}
 
+
+
+
+
 {% block title %}
-    {% trans "Vaše rozhodnutí" %}
+    {% trans "Část II." %}
 {% endblock %}
 
 {% block content %}
+
+
+ <div style="margin-bottom: 50px;">
+    <p>
+        Vaším úkolem v této části studie je učinit {{ num_choices }} rozhodnutí mezi <strong>Možností A</strong> a <strong>Možností B</strong> v tabulce níže.
+    </p>
+
+    <p>
+        Odměna z této části bude určena ve dvou krocích.
+        Nejprve bude vylosováno jedno z Vašich {{ num_choices }} rozhodnutí. 
+        Poté se u Vámi vybrané možnosti v tomto rozhodnutí určí,
+        zda obdržíte vyšší nebo nižší odměnu, a to následovně:
+    </p>
+
+    <ul>
+        <li>
+            Vyšší odměnu ({{ lottery_a_hi }} u Možnosti A a {{ lottery_b_hi }} u Možnosti B)
+            získáte s uvedenou pravděpodobností, která se liší v jednotlivých rozhodnutích
+            (např. v prvním rozhodnutí je u obou možností 5 %, ve druhém 10 % atd.).
+        </li>
+
+        <li>
+            Pokud vyšší odměnu nezískáte, obdržíte nižší odměnu
+            ({{ lottery_a_lo }} u Možnosti A a {{ lottery_b_lo }} u Možnosti B).
+        </li>
+    </ul>
+
+    <p>
+        Takto určená odměna Vám bude vyplacena v poměru <b>1&nbsp;ECU&nbsp;=&nbsp;1&nbsp;CZK</b>.
+    </p>
+
+    <p>
+        <strong>Shrnutí:</strong> Udělejte {{ num_choices }} rozhodnutí mezi Možností A a Možností B.
+        V každém rozhodnutí zvolte možnost, kterou preferujete vzhledem ke kombinaci výše odměny
+        a pravděpodobnosti jejího získání.
+    </p>
+</div>
+
+
+
 <div class="wrapper">
 
     {# Progress Bar #}
@@ -121,7 +165,7 @@
 
                             <td class="lottery-a">
                                 {{ lottery_a_hi }} {% trans "s pravděpodobností " %}{{ p }},<br/>
-                                {% trans "jinak" %} {{ lottery_a_lo }} 
+                                {% trans "jinak" %} {{ lottery_a_lo }}
                             </td>
 
                             <td class="formfield">
@@ -131,7 +175,7 @@
 
                             <td class="lottery-b">
                                 {{ lottery_b_hi }} {% trans "s pravděpodobností " %}{{ p }},<br/>
-                                {% trans "jinak" %} {{ lottery_b_lo }} 
+                                {% trans "jinak" %} {{ lottery_b_lo }}
                             </td>
 
                             {% if Constants.small_pies == True %}

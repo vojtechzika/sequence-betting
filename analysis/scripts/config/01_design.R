@@ -48,7 +48,9 @@ design_cfg <- function() {
       A_high = 20.0,
       A_low  = 16.0,
       B_high = 38.5,
-      B_low  = 1.0
+      B_low  = 1.0,
+      label_safe  = "A",
+      label_risky = "B"
     ),
     
     # --------------------------------------------------------
@@ -91,6 +93,14 @@ design_cfg <- function() {
     rq4 = list(
       delta = c(0.05, 0.03, 0.08),   # first = main (tolerance band around hbar)
       ppc_overdisp_cut = 0.95        # prereg trigger cutoff for Beta–Binomial robustness
+    ),
+    
+    
+    # --------------------------------------------------------
+    # EX2
+    # --------------------------------------------------------
+    ex2 = list(
+      min_Nk      = 10L
     ),
     
     # --------------------------------------------------------

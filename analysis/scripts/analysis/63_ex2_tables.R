@@ -118,18 +118,46 @@ ex2_stan <- function(cfg) {
     bet_n <- dtr[stake>0,.N,by=pid]
     setkey(bet_n,pid)
     
-    build_predictors <- function(pids){
+    build_predictors_all <- function() {
       
-      pid_cov <- dtr[,.(lotr_z=lotr_z[1]),by=pid]
+      pid_cov <- dtr[, .(lotr_z = lotr_z[1]), by = pid]
       
-      d_rt <- dtr[stake>0 & screen_ms>0]
-      rt_pid <- d_rt[,.(rt_log_mean=mean(log(screen_ms))),by=pid]
+      d_rt <- dtr[stake > 0 & screen_ms > 0]
+      rt_pid <- d_rt[, .(rt_log_mean = mean(log(screen_ms))), by = pid]
       
-      pid_cov <- merge(pid_cov,rt_pid,by="pid",all.x=TRUE)
+      pid_cov <- merge(pid_cov, rt_pid, by = "pid", all.x = TRUE)
       
-      setkey(pid_cov,pid)
-      pid_cov[.(pids)]
+      pid_cov
     }
+    
+    pid_cov_all <- build_predictors_all()
+    
+    # participants with valid EX2 predictors
+    pid_pred <- pid_cov_all[
+      is.finite(lotr_z) & is.finite(rt_log_mean),
+      pid
+    ]
+    
+    # common EX2 sample across all outcomes except RQ2's extra min-bets rule
+    pid_common <- Reduce(intersect, list(
+      pid_pred,
+      as.character(pid1),
+      as.character(pid3),
+      as.character(pid4)
+    ))
+    
+    # RQ2-specific common sample additionally requiring enough bets
+    n_bets_all <- bet_n[.(pid_common), N]
+    n_bets_all[is.na(n_bets_all)] <- 0
+    pid_common_a <- pid_common[n_bets_all >= rq2_min_bets]
+    
+    # z-score once on the common treatment-level EX2 sample
+    pid_cov_common <- pid_cov_all[pid %in% pid_common]
+    setkey(pid_cov_common, pid)
+    pid_cov_common <- pid_cov_common[.(sort(pid_common))]
+    
+    pid_cov_common[, Zopt := z_strict(lotr_z)]
+    pid_cov_common[, Zrt  := z_strict(rt_log_mean)]
     
     outcome_blocks <- list(
       list(k=1,name="b",pid=pid1,y=mu_b),
@@ -145,20 +173,13 @@ ex2_stan <- function(cfg) {
       pids <- as.character(ob$pid)
       y_full <- ob$y
       
-      pid_cov <- build_predictors(pids)
-      
-      if(ob$name=="a"){
-        n_bets <- bet_n[.(pids),N]
-        n_bets[is.na(n_bets)] <- 0
-        ok_a <- n_bets >= rq2_min_bets
+      if (ob$name == "a") {
+        keep_pid <- intersect(pids, pid_common_a)
       } else {
-        ok_a <- rep(TRUE,length(pids))
+        keep_pid <- intersect(pids, pid_common)
       }
       
-      ok_pred <- is.finite(pid_cov$lotr_z) &
-        is.finite(pid_cov$rt_log_mean)
-      
-      keep <- ok_a & ok_pred
+      keep <- pids %in% keep_pid
       
       if(sum(keep) < min_Nk) next
       
@@ -174,14 +195,14 @@ ex2_stan <- function(cfg) {
       
       y_rep <- z_within_draw(y_rep)
       
-      pid_cov_k <- pid_cov[keep]
+      pid_cov_k <- pid_cov_common[.(pids[keep])]
       
       blocks[[ob$name]] <- list(
-        k=ob$k,
-        pid=pids[keep],
-        y=y_rep,
-        Zopt=z_strict(pid_cov_k$lotr_z),
-        Zrt=z_strict(pid_cov_k$rt_log_mean)
+        k = ob$k,
+        pid = pids[keep],
+        y = y_rep,
+        Zopt = pid_cov_k$Zopt,
+        Zrt  = pid_cov_k$Zrt
       )
     }
     
@@ -207,13 +228,6 @@ ex2_stan <- function(cfg) {
       y_stack <- if(is.null(y_stack)) yb else cbind(y_stack,yb)
     }
     
-    # K is fixed at 4 because the model always contains the four
-    # conceptual outcomes:
-    #   1=b (RQ1), 2=a (RQ2), 3=c (RQ3), 4=h (RQ4).
-    # Some blocks may contribute zero rows if filtered (e.g., RQ2 min_bets),
-    # but the indexing must remain fixed so that Stan parameters and
-    # downstream tables keep a stable outcome mapping.
-    K = 4L
     data_list <- list(
       K=4L,
       Nobs=length(kid),

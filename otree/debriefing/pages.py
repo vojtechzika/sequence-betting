@@ -4,11 +4,13 @@ from otree.api import *
 class Survey(Page):
     form_model = 'player'
     form_fields = [
+        'perceived_win_probability',
+        'perceived_risk',
         'belief_independence',
         'reliance_on_sequence',
-        'perceived_realism_history',
+        # 'perceived_realism_history',
         'action_seeking',
-        'enjoyment',
+        # 'enjoyment',
         'fatigue',
         'self_risk_tolerance',
         'used_strategy',

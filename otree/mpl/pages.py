@@ -61,7 +61,10 @@ class Decision(Page):
                 choices=[self.participant.vars['mpl_choices'][page - 1]],
             )
         else:
-            ctx = dict(choices=self.participant.vars['mpl_choices'])
+            ctx = dict(
+                choices=self.participant.vars['mpl_choices'],
+                num_choices=len(self.participant.vars['mpl_choices']),
+            )
 
         ctx.update(_lottery_ctx())
         return ctx

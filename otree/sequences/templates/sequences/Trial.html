@@ -282,12 +282,20 @@ input[type=range][data-empty="true"]::-webkit-slider-runnable-track { background
       <div class="choices">
         {% if outcomes_left %}
           <button type="button" class="otree-btn otree-btn-primary" data-side="{{ outcomes_left }}">
-            {{ nickname_left }}
+            {% if is_practice %}
+              X
+            {% else %}
+              {{ nickname_left }}
+            {% endif %}
           </button>
         {% endif %}
         {% if outcomes_right %}
           <button type="button" class="otree-btn otree-btn-primary" data-side="{{ outcomes_right }}">
-            {{ nickname_right }}
+            {% if is_practice %}
+              Y
+            {% else %}
+              {{ nickname_right }}
+            {% endif %}
           </button>
         {% endif %}
         <button type="button" class="otree-btn" data-side="NB">Nesázet</button>

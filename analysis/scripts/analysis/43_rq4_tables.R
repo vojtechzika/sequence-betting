@@ -82,9 +82,9 @@ rq4_tables <- function(cfg) {
   
   for (tr in tr_vec) {
     
-    f_fit <- file.path(mod_dir, paste0("rq4_fit_sequences_", tr, ".rds"))
-    f_pid <- file.path(mod_dir, paste0("rq4_pid_levels_", tr, ".rds"))
-    f_seq <- file.path(mod_dir, paste0("rq4_seq_levels_", tr, ".rds"))
+    f_fit <- file.path(mod_dir, paste0("rq4_fit_sequences_", tr, "_full.rds"))
+    f_pid <- file.path(mod_dir, paste0("rq4_pid_levels_", tr, "_full.rds"))
+    f_seq <- file.path(mod_dir, paste0("rq4_seq_levels_", tr, "_full.rds"))
     if (!file.exists(f_fit) || !file.exists(f_pid) || !file.exists(f_seq)) next
     
     fit <- readRDS(f_fit)

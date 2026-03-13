@@ -9,23 +9,10 @@ make_debriefing_table <- function(cfg) {
   
   dt <- data.table::fread(infile, encoding = "UTF-8")
   
-  # ---- Define debreifing fields ----
-  vars <- c(
-    "participant.code",
-    "debriefing.1.player.id_in_group",
-    "debriefing.1.player.role",
-    "debriefing.1.player.payoff",
-    "debriefing.1.player.belief_independence",
-    "debriefing.1.player.reliance_on_sequence",
-    "debriefing.1.player.perceived_realism_history",
-    "debriefing.1.player.action_seeking",
-    "debriefing.1.player.enjoyment",
-    "debriefing.1.player.fatigue",
-    "debriefing.1.player.self_risk_tolerance",
-    "debriefing.1.player.used_strategy",
-    "debriefing.1.player.strategy_text",
-    "debriefing.1.player.comment"
-  )
+  # ---- Detect all debriefing fields automatically ----
+  deb_cols <- grep("^debriefing\\.1\\.player\\.", names(dt), value = TRUE)
+  
+  vars <- c("participant.code", deb_cols)
   
   missing <- setdiff(vars, names(dt))
   if (length(missing) > 0) {
@@ -38,25 +25,14 @@ make_debriefing_table <- function(cfg) {
   data.table::setnames(deb, "participant.code", "pid")
   deb <- unique(deb, by = "pid")
   
-  # ---- Rename columns ----
-  rename_map <- c(
-    "debriefing.1.player.id_in_group"          = "id_in_group",
-    "debriefing.1.player.role"                 = "role",
-    "debriefing.1.player.payoff"               = "payoff",
-    "debriefing.1.player.belief_independence"  = "belief_independence",
-    "debriefing.1.player.reliance_on_sequence" = "reliance_on_sequence",
-    "debriefing.1.player.perceived_realism_history" = "perceived_realism",
-    "debriefing.1.player.action_seeking"       = "action_seeking",
-    "debriefing.1.player.enjoyment"            = "enjoyment",
-    "debriefing.1.player.fatigue"              = "fatigue",
-    "debriefing.1.player.self_risk_tolerance"  = "self_risk_tolerance",
-    "debriefing.1.player.used_strategy"        = "used_strategy",
-    "debriefing.1.player.strategy_text"        = "strategy_text",
-    "debriefing.1.player.comment"              = "comment"
+  # ---- Build rename map automatically ----
+  # debriefing.1.player.X  ->  X
+  rename_map <- setNames(
+    sub("^debriefing\\.1\\.player\\.", "", deb_cols),
+    deb_cols
   )
   
-  old <- names(rename_map)
-  old <- old[old %in% names(deb)]
+  old <- intersect(names(rename_map), names(deb))
   data.table::setnames(deb, old, rename_map[old])
   
   # ---- Clean numeric Likert-style variables ----

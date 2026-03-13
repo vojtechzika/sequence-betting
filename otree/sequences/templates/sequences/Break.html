@@ -27,13 +27,20 @@
 </style>
 
 <div class="center-box">
-  <h2>Dokončili jste {{ blk }}. z celkem {{ n_blocks }} bloků.</h2>
-  <p>Za <span id="count">{{ break_seconds }}</span> sekund budete pokračovat.</p>
+
+{% if last_block_break and blk == n_blocks %}
+  <h2>Dokončili jste tuto část studie.</h2>
+{% else %}
+  <h2>Dokončili jste {{ blk }}. ze {{ n_blocks }} bloků.</h2>
+{% endif %}
+
+<p>Za <span id="count">{{ break_seconds }}</span> sekund budete pokračovat.</p>
 
   <!-- fallback -->
   <button class="otree-btn otree-btn-next" id="nextBtn" style="display:none;">
     Pokračovat
   </button>
+
 </div>
 
 
