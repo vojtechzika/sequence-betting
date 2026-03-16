@@ -77,5 +77,3 @@ echo Session running
 echo Use END-SESSION.bat when finished
 echo ======================================
 echo.
-
-pause
