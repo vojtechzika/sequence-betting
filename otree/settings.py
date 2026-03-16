@@ -37,8 +37,8 @@ POINTS_CUSTOM_NAME = 'ECU'
 
 REAL_WORLD_CURRENCY_CODE = 'CZK'
 
-ADMIN_USERNAME = 'admin'
-ADMIN_PASSWORD = 'admin'
+ADMIN_USERNAME = 'sekvence'
+ADMIN_PASSWORD = 'sekvence'
 
 SECRET_KEY = 'lab-secret-key'
 
