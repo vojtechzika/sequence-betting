@@ -5,7 +5,7 @@ REM Project configuration for lab scripts
 REM ------------------------------------------------
 
 REM Python version used for venv
-set PYTHON_VERSION=3.10.11
+set PYTHON_VERSION=3.10
 
 REM Port for server
 set OTREE_PORT=8000
