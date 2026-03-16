@@ -1,17 +1,22 @@
 @echo off
 setlocal
 
+REM ------------------------------------------------
+REM Start experiment session
+REM ------------------------------------------------
+
 set SCRIPT_DIR=%~dp0
 for %%I in ("%SCRIPT_DIR%..") do set OTREE_ROOT=%%~fI
 
 call "%SCRIPT_DIR%lab-config.bat"
 
-set VENV_DIR=%OTREE_ROOT%\venv
+set VENV_ACTIVATE=%OTREE_ROOT%\venv\Scripts\activate.bat
 set ROOM_FILE=%OTREE_ROOT%\%ROOM_LABEL_FILE%
 
-where py >nul 2>&1 || (
-    echo ERROR: Python launcher not found.
-    echo Install Python %PYTHON_VERSION% and make sure the py launcher is available.
+if not exist "%VENV_ACTIVATE%" (
+    echo ERROR: Python environment not found.
+    echo.
+    echo Please run setup-lab.bat first.
     echo.
     pause
     exit /b 1
@@ -19,14 +24,6 @@ where py >nul 2>&1 || (
 
 if not exist "%OTREE_ROOT%\settings.py" (
     echo ERROR: settings.py not found in:
-    echo %OTREE_ROOT%
-    echo.
-    pause
-    exit /b 1
-)
-
-if not exist "%OTREE_ROOT%\requirements.txt" (
-    echo ERROR: requirements.txt not found in:
     echo %OTREE_ROOT%
     echo.
     pause
@@ -43,42 +40,42 @@ if not exist "%ROOM_FILE%" (
     exit /b 1
 )
 
-echo Creating virtual environment...
-py -%PYTHON_VERSION% -m venv "%VENV_DIR%"
-if errorlevel 1 (
-    echo ERROR: Failed to create virtual environment.
+tasklist /FI "WINDOWTITLE eq oTree Server*" | find /I "cmd.exe" >nul
+if %errorlevel%==0 (
+    echo ERROR: oTree server already running.
     echo.
-    pause
-    exit /b 1
-)
-
-call "%VENV_DIR%\Scripts\activate.bat"
-if errorlevel 1 (
-    echo ERROR: Failed to activate virtual environment.
-    echo.
-    pause
-    exit /b 1
-)
-
-cd /d "%OTREE_ROOT%"
-
-python -m pip install --upgrade pip
-if errorlevel 1 (
-    echo ERROR: Failed to upgrade pip.
-    echo.
-    pause
-    exit /b 1
-)
-
-pip install -r requirements.txt
-if errorlevel 1 (
-    echo ERROR: Failed to install dependencies from requirements.txt.
+    echo Close the existing server before starting a new session.
     echo.
     pause
     exit /b 1
 )
 
 echo.
-echo Setup complete.
+echo Creating pre-session backup...
+call "%SCRIPT_DIR%_backup-db.bat" >nul 2>&1
+
 echo.
+echo Starting experiment...
+echo.
+
+call "%SCRIPT_DIR%_start-otree.bat"
+if errorlevel 1 (
+    echo ERROR: Failed to start oTree server.
+    echo.
+    pause
+    exit /b 1
+)
+
+timeout /t 3 >nul
+
+echo Opening admin page...
+start http://localhost:%OTREE_PORT%
+
+echo.
+echo ======================================
+echo Session running
+echo Use END-SESSION.bat when finished
+echo ======================================
+echo.
+
 pause
