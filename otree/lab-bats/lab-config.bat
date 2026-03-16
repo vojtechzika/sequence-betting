@@ -13,9 +13,6 @@ set OTREE_PORT=8000
 REM Auth Level
 set OTREE_AUTH_LEVEL=STUDY
 
-REM Admin password
-set OTREE_ADMIN_PASSWORD=1324
-
 REM Room name used in experiment
 set ROOM_NAME=lab
 
