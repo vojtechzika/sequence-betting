@@ -36,6 +36,5 @@ if errorlevel 1 (
 cd /d "%OTREE_ROOT%"
 
 set OTREE_PRODUCTION=1
-set OTREE_ADMIN_PASSWORD=%OTREE_ADMIN_PASSWORD%
 
 start "oTree Server" cmd /k "title oTree Server && otree prodserver 0.0.0.0:%OTREE_PORT%"
