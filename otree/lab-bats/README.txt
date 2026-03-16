@@ -15,7 +15,7 @@ repo
    ├─ db.sqlite3
    ├─ venv
    ├─ _rooms
-   │    └─ lab.txt
+   │    └─ lab_labels.txt
    └─ lab-bats
         ├─ setup-lab.bat
         ├─ RUN-SESSION.bat
