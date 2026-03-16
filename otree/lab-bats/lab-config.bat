@@ -10,8 +10,11 @@ set PYTHON_VERSION=3.10
 REM Port for server
 set OTREE_PORT=8000
 
+REM Auth Level
+set OTREE_AUTH_LEVEL=STUDY
+
 REM Admin password
-set OTREE_ADMIN_PASSWORD=admin
+set OTREE_ADMIN_PASSWORD=1324
 
 REM Room name used in experiment
 set ROOM_NAME=lab
