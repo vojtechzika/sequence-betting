@@ -29,5 +29,3 @@ if not exist "%BACKUP_ROOT%\%PROJECT%" (
 
 echo Opening backup folder...
 explorer "%BACKUP_ROOT%\%PROJECT%"
-
-pause
