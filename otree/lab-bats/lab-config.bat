@@ -17,7 +17,7 @@ REM Room name used in experiment
 set ROOM_NAME=lab
 
 REM Relative path inside otree folder to participant label file
-set ROOM_LABEL_FILE=_rooms\lab.txt
+set ROOM_LABEL_FILE=_rooms\lab_labels.txt
 
 REM Backup location
 set BACKUP_ROOT=D:\otree-backups
