@@ -44,7 +44,7 @@ design_cfg <- function() {
     # MPL risk elicitation
     # --------------------------------------------------------
     mpl = list(
-      K      = 10L, # number of rows/lotteries
+      K      = 19L, # number of rows/lotteries
       A_high = 20.0,
       A_low  = 16.0,
       B_high = 38.5,

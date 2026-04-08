@@ -1,298 +1,249 @@
 # ============================================================
-# scripts/analysis/61_ex2_stan.R
+# scripts/analysis/63_ex2_tables.R
+#
+# EX2 tables
 # ============================================================
 
-library(data.table)
-library(rstan)
+suppressPackageStartupMessages({
+  library(data.table)
+  library(rstan)
+})
 
-options(mc.cores = parallel::detectCores())
-rstan_options(auto_write = TRUE)
-
-ex2_stan <- function(cfg) {
+ex2_tables <- function(cfg) {
   
-  stopifnot(is.list(cfg), !is.null(cfg$run), !is.null(cfg$model))
-  stopifnot(!is.null(cfg$run$dataset), !is.null(cfg$run$seed))
-  
-  ds   <- as.character(cfg$run$dataset)
-  seed <- as.integer(cfg$run$seed)
-  
-  tr_vec <- as.character(cfg$run$treatment)
+  ds <- as.character(cfg$run$dataset)
+  treatments <- as.character(cfg$run$treatment)
+  rq2_min_bets <- as.integer(cfg$design$rq2$min_bets)
   
   mod_dir <- path_mod_ds(ds)
   out_dir <- path_out_ds(ds)
   
-  dir.create(mod_dir, showWarnings = FALSE, recursive = TRUE)
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
   
   f_master <- file.path(path_clean_ds(ds), "master_sequences.csv")
-  stopifnot(file.exists(f_master))
-  
-  stan_file <- here::here("stan", "ex2_associations.stan")
-  stopifnot(file.exists(stan_file))
-  
-  writeLines(readLines(stan_file, warn = FALSE), stan_file)
-  
-  sm <- rstan::stan_model(stan_file)
-  
-  st <- cfg$model$stan$ex2[[ds]]
-  
-  iter_val        <- as.integer(st$iter)
-  warmup_val      <- as.integer(st$warmup)
-  chains_val      <- as.integer(st$chains)
-  adapt_delta_val <- as.numeric(st$adapt_delta)
-  treedepth_val   <- as.integer(st$treedepth)
-  
-  ex2_trep <- as.integer(cfg$model$simulation$ex2_trep[[ds]])
-  
-  min_Nk <- if (ds == "pilot") 0L else as.integer(cfg$design$ex2$min_Nk)
-  
-  rq2_min_bets <- as.integer(cfg$design$rq2$min_bets)
-  
-  master <- fread(f_master, encoding = "UTF-8")
-  
-  req <- c("pid","treat","stake","screen_ms","lotr_score")
-  miss <- setdiff(req,names(master))
-  if(length(miss)>0)
-    stop("master_sequences.csv missing columns: ",paste(miss,collapse=", "))
+  master <- fread(f_master)
   
   master[, pid := as.character(pid)]
   master[, treat := as.character(treat)]
   master[, stake := as.numeric(stake)]
-  master[, screen_ms := as.numeric(screen_ms)]
-  master[, lotr_score := as.numeric(lotr_score)]
-  
   master[is.na(stake), stake := 0]
   
-  master[, lotr_z := (lotr_score - mean(lotr_score, na.rm = TRUE)) /
-           sd(lotr_score, na.rm = TRUE)]
+  # ------------------------------------------------------------
+  # Helpers
+  # ------------------------------------------------------------
   
-  z_strict <- function(x){
-    m <- mean(x)
-    s <- sd(x)
-    if(!is.finite(s) || s<=0) stop("Cannot z-score.")
-    (x-m)/s
+  summ <- function(x, prob = TRUE) {
+    q <- quantile(x, c(.025, .975), names = FALSE)
+    c(
+      median = median(x),
+      mean   = mean(x),
+      q025   = q[1],
+      q975   = q[2],
+      p_gt0  = if (prob) mean(x > 0) else NA_real_
+    )
   }
   
-  z_within_draw <- function(mat){
-    for(t in seq_len(nrow(mat))){
-      m <- mean(mat[t,])
-      s <- sd(mat[t,])
-      if(!is.finite(s) || s<=0) stop("draw sd zero")
-      mat[t,] <- (mat[t,]-m)/s
-    }
-    mat
+  mat_tbl <- function(pid, mat, prefix) {
+    
+    tmp <- t(apply(mat, 2, summ, prob = FALSE))
+    
+    out <- data.table(pid = pid)
+    
+    out[, paste0(prefix, "_median") := tmp[, "median"]]
+    out[, paste0(prefix, "_mean")   := tmp[, "mean"]]
+    out[, paste0(prefix, "_q025")   := tmp[, "q025"]]
+    out[, paste0(prefix, "_q975")   := tmp[, "q975"]]
+    
+    out
   }
   
   outputs <- list()
   
-  for(tr in tr_vec){
+  for (tr in treatments) {
     
-    msg("Running EX2 Stan model for treatment: ", tr)
+    msg("Building EX2 tables for treatment: ", tr)
     
-    # ---------------------------------------------------------
-    # load RQ fits
-    # ---------------------------------------------------------
+    f_ex2_fit <- file.path(mod_dir, paste0("ex2_fit_", tr, ".rds"))
     
-    fit1 <- readRDS(file.path(mod_dir,paste0("rq1_fit_sequences_",tr,"_full.rds")))
-    fit2 <- readRDS(file.path(mod_dir,paste0("rq2_fit_sequences_",tr,"_full.rds")))
-    fit3 <- readRDS(file.path(mod_dir,paste0("rq3_fit_sequences_",tr,"_full.rds")))
-    fit4 <- readRDS(file.path(mod_dir,paste0("rq4_fit_sequences_",tr,"_full.rds")))
+    f_rq1_fit <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, "_full.rds"))
+    f_rq1_pid <- file.path(mod_dir, paste0("rq1_pid_levels_", tr, "_full.rds"))
     
-    pid1 <- readRDS(file.path(mod_dir,paste0("rq1_pid_levels_",tr,"_full.rds")))
-    pid2 <- readRDS(file.path(mod_dir,paste0("rq2_pid_levels_",tr,"_full.rds")))
-    pid3 <- readRDS(file.path(mod_dir,paste0("rq3_pid_levels_",tr,"_full.rds")))
-    pid4 <- readRDS(file.path(mod_dir,paste0("rq4_pid_levels_",tr,"_full.rds")))
+    f_rq2_fit <- file.path(mod_dir, paste0("rq2_fit_sequences_", tr, "_full.rds"))
+    f_rq2_pid <- file.path(mod_dir, paste0("rq2_pid_levels_", tr, "_full.rds"))
     
-    post1 <- rstan::extract(fit1)
-    post2 <- rstan::extract(fit2)
-    post3 <- rstan::extract(fit3)
-    post4 <- rstan::extract(fit4)
+    f_rq3_fit <- file.path(mod_dir, paste0("rq3_fit_sequences_", tr, "_full.rds"))
+    f_rq3_pid <- file.path(mod_dir, paste0("rq3_pid_levels_", tr, "_full.rds"))
     
-    mu_b <- post1$mu_b_i
-    mu_a <- post2$mu_a_i
-    mu_c <- post3$mu_c_i
-    mu_h <- post4$mu_h_i
+    f_rq4_fit <- file.path(mod_dir, paste0("rq4_fit_sequences_", tr, "_full.rds"))
+    f_rq4_pid <- file.path(mod_dir, paste0("rq4_pid_levels_", tr, "_full.rds"))
     
-    dtr <- master[treat==tr]
+    f_summary <- file.path(out_dir, paste0("ex2_summary_", tr, ".csv"))
+    f_parts   <- file.path(out_dir, paste0("ex2_participants_", tr, ".csv"))
     
-    bet_n <- dtr[stake>0,.N,by=pid]
-    setkey(bet_n,pid)
-    
-    build_predictors_all <- function() {
-      
-      pid_cov <- dtr[, .(lotr_z = lotr_z[1]), by = pid]
-      
-      d_rt <- dtr[stake > 0 & screen_ms > 0]
-      rt_pid <- d_rt[, .(rt_log_mean = mean(log(screen_ms))), by = pid]
-      
-      pid_cov <- merge(pid_cov, rt_pid, by = "pid", all.x = TRUE)
-      
-      pid_cov
-    }
-    
-    pid_cov_all <- build_predictors_all()
-    
-    # participants with valid EX2 predictors
-    pid_pred <- pid_cov_all[
-      is.finite(lotr_z) & is.finite(rt_log_mean),
-      pid
-    ]
-    
-    # common EX2 sample across all outcomes except RQ2's extra min-bets rule
-    pid_common <- Reduce(intersect, list(
-      pid_pred,
-      as.character(pid1),
-      as.character(pid3),
-      as.character(pid4)
-    ))
-    
-    # RQ2-specific common sample additionally requiring enough bets
-    n_bets_all <- bet_n[.(pid_common), N]
-    n_bets_all[is.na(n_bets_all)] <- 0
-    pid_common_a <- pid_common[n_bets_all >= rq2_min_bets]
-    
-    # z-score once on the common treatment-level EX2 sample
-    pid_cov_common <- pid_cov_all[pid %in% pid_common]
-    setkey(pid_cov_common, pid)
-    pid_cov_common <- pid_cov_common[.(sort(pid_common))]
-    
-    pid_cov_common[, Zopt := z_strict(lotr_z)]
-    pid_cov_common[, Zrt  := z_strict(rt_log_mean)]
-    
-    outcome_blocks <- list(
-      list(k=1,name="b",pid=pid1,y=mu_b),
-      list(k=2,name="a",pid=pid2,y=mu_a),
-      list(k=3,name="c",pid=pid3,y=mu_c),
-      list(k=4,name="h",pid=pid4,y=mu_h)
+    skip_summary <- should_skip(
+      paths = f_summary,
+      cfg   = cfg,
+      type  = "output",
+      label = paste0("EX2 summary (", ds, "/", tr, ")")
     )
     
-    blocks <- list()
+    skip_parts <- should_skip(
+      paths = f_parts,
+      cfg   = cfg,
+      type  = "output",
+      label = paste0("EX2 participants (", ds, "/", tr, ")")
+    )
     
-    for(ob in outcome_blocks){
+    if (skip_summary && skip_parts) next
+    
+    # ============================================================
+    # 1) EX2 SUMMARY
+    # ============================================================
+    
+    if (!skip_summary) {
       
-      pids <- as.character(ob$pid)
-      y_full <- ob$y
+      fit  <- readRDS(f_ex2_fit)
+      post <- rstan::extract(fit)
       
-      if (ob$name == "a") {
-        keep_pid <- intersect(pids, pid_common_a)
-      } else {
-        keep_pid <- intersect(pids, pid_common)
+      rows <- list(
+        
+        data.table(
+          block="pooled", outcome=NA, term="beta_opt_bar",
+          t(summ(post$beta_opt_bar))
+        ),
+        
+        data.table(
+          block="pooled", outcome=NA, term="beta_rt_bar",
+          t(summ(post$beta_rt_bar))
+        ),
+        
+        data.table(
+          block="pooled", outcome=NA, term="tau_opt",
+          t(summ(post$tau_opt, FALSE))
+        ),
+        
+        data.table(
+          block="pooled", outcome=NA, term="tau_rt",
+          t(summ(post$tau_rt, FALSE))
+        )
+      )
+      
+      outcomes <- c("b","a","c","h")
+      
+      for (k in seq_along(outcomes)) {
+        
+        rows[[length(rows)+1]] <- data.table(
+          block="outcome",
+          outcome=outcomes[k],
+          term="beta_opt",
+          t(summ(post$beta_opt_k[,k]))
+        )
+        
+        rows[[length(rows)+1]] <- data.table(
+          block="outcome",
+          outcome=outcomes[k],
+          term="beta_rt",
+          t(summ(post$beta_rt_k[,k]))
+        )
+        
+        rows[[length(rows)+1]] <- data.table(
+          block="outcome",
+          outcome=outcomes[k],
+          term="sigma",
+          t(summ(post$sigma_k[,k], FALSE))
+        )
       }
       
-      keep <- pids %in% keep_pid
+      tbl_summary <- rbindlist(rows, fill = TRUE)
       
-      if(sum(keep) < min_Nk) next
+      tbl_summary[,`:=`(
+        dataset=ds,
+        treatment=tr
+      )]
       
-      y_rep <- y_full[,keep,drop=FALSE]
+      setcolorder(tbl_summary,c(
+        "dataset","treatment","block","outcome","term",
+        "median","mean","q025","q975","p_gt0"
+      ))
       
-      K_all <- nrow(y_rep)
-      Trep <- min(ex2_trep,K_all)
+      fwrite(tbl_summary,f_summary)
       
-      set.seed(seed+ob$k)
-      idx <- sort(sample.int(K_all,Trep))
-      
-      y_rep <- y_rep[idx,,drop=FALSE]
-      
-      y_rep <- z_within_draw(y_rep)
-      
-      pid_cov_k <- pid_cov_common[.(pids[keep])]
-      
-      blocks[[ob$name]] <- list(
-        k = ob$k,
-        pid = pids[keep],
-        y = y_rep,
-        Zopt = pid_cov_k$Zopt,
-        Zrt  = pid_cov_k$Zrt
-      )
+      msg("Saved EX2 summary table: ", f_summary)
     }
     
-    if(length(blocks)==0) next
+    # ============================================================
+    # 2) PARTICIPANT TABLE
+    # ============================================================
     
-    Trep_joint <- min(sapply(blocks,function(x)nrow(x$y)))
-    
-    kid <- c()
-    Zopt <- c()
-    Zrt <- c()
-    y_stack <- NULL
-    
-    for(b in blocks){
+    if (!skip_parts) {
       
-      Nk <- length(b$pid)
+      betN <- master[
+        treat==tr & stake>0,
+        .(n_bets=.N),
+        by=pid
+      ]
       
-      kid  <- c(kid,rep(b$k,Nk))
-      Zopt <- c(Zopt,b$Zopt)
-      Zrt  <- c(Zrt,b$Zrt)
+      post1 <- rstan::extract(readRDS(f_rq1_fit))
+      post2 <- rstan::extract(readRDS(f_rq2_fit))
+      post3 <- rstan::extract(readRDS(f_rq3_fit))
+      post4 <- rstan::extract(readRDS(f_rq4_fit))
       
-      yb <- b$y[1:Trep_joint,,drop=FALSE]
+      pid1 <- as.character(readRDS(f_rq1_pid))
+      pid2 <- as.character(readRDS(f_rq2_pid))
+      pid3 <- as.character(readRDS(f_rq3_pid))
+      pid4 <- as.character(readRDS(f_rq4_pid))
       
-      y_stack <- if(is.null(y_stack)) yb else cbind(y_stack,yb)
+      rq1_tbl <- mat_tbl(pid1, post1$mu_b_i, "mu_b")
+      rq2_tbl <- mat_tbl(pid2, post2$mu_a_i, "mu_a")
+      rq3_tbl <- mat_tbl(pid3, post3$mu_c_i, "mu_c")
+      rq4_tbl <- mat_tbl(pid4, post4$mu_h_i, "mu_h")
+      
+      rq2_tbl <- merge(rq2_tbl, betN, by="pid", all.x=TRUE)
+      rq2_tbl[is.na(n_bets), n_bets := 0]
+      
+      rq2_tbl[n_bets < rq2_min_bets,
+              c("mu_a_median","mu_a_mean","mu_a_q025","mu_a_q975") :=
+                .(NA_real_,NA_real_,NA_real_,NA_real_)]
+      
+      pid_all <- sort(unique(c(pid1,pid2,pid3,pid4)))
+      
+      tbl_parts <- data.table(pid=pid_all)
+      
+      tbl_parts <- merge(tbl_parts,rq1_tbl,by="pid",all.x=TRUE)
+      
+      tbl_parts <- merge(
+        tbl_parts,
+        rq2_tbl[,c("pid","n_bets",
+                   "mu_a_median","mu_a_mean",
+                   "mu_a_q025","mu_a_q975")],
+        by="pid",
+        all.x=TRUE
+      )
+      
+      tbl_parts <- merge(tbl_parts,rq3_tbl,by="pid",all.x=TRUE)
+      tbl_parts <- merge(tbl_parts,rq4_tbl,by="pid",all.x=TRUE)
+      
+      tbl_parts[,`:=`(
+        dataset=ds,
+        treatment=tr,
+        rq2_min_bets=rq2_min_bets
+      )]
+      
+      setcolorder(tbl_parts,c(
+        "dataset","treatment","pid","rq2_min_bets","n_bets",
+        "mu_b_median","mu_b_mean","mu_b_q025","mu_b_q975",
+        "mu_a_median","mu_a_mean","mu_a_q025","mu_a_q975",
+        "mu_c_median","mu_c_mean","mu_c_q025","mu_c_q975",
+        "mu_h_median","mu_h_mean","mu_h_q025","mu_h_q975"
+      ))
+      
+      setorder(tbl_parts,pid)
+      
+      fwrite(tbl_parts,f_parts)
+      
+      msg("Saved EX2 participant table: ", f_parts)
     }
     
-    data_list <- list(
-      K=4L,
-      Nobs=length(kid),
-      Trep=Trep_joint,
-      y_rep=y_stack,
-      kid=as.integer(kid),
-      Zopt=Zopt,
-      Zrt=Zrt
-    )
-    
-    msg("Sampling EX2 Stan model for treatment: ", tr)
-    
-    fit <- rstan::sampling(
-      sm,
-      data=data_list,
-      iter=iter_val,
-      warmup=warmup_val,
-      chains=chains_val,
-      seed=seed,
-      control=list(
-        adapt_delta=adapt_delta_val,
-        max_treedepth=treedepth_val
-      )
-    )
-    
-    fit_file <- file.path(mod_dir,paste0("ex2_fit_",tr,".rds"))
-    saveRDS(fit, fit_file)
-    
-    msg("Saved Stan fit: ", fit_file)
-    
-    post <- rstan::extract(fit)
-    
-    summ <- function(x){
-      q <- quantile(x, c(0.025, 0.975), names = FALSE)
-      c(
-        median = median(x),
-        mean   = mean(x),
-        q025   = q[1],
-        q975   = q[2],
-        p_gt0  = mean(x > 0)
-      )
-    }
-    
-    pooled <- rbind(
-      beta_opt_bar=summ(post$beta_opt_bar),
-      beta_rt_bar=summ(post$beta_rt_bar)
-    )
-    
-    tbl <- data.table(
-      term=rownames(pooled),
-      median=pooled[,"median"],
-      mean=pooled[,"mean"],
-      q025=pooled[,"q025"],
-      q975=pooled[,"q975"],
-      p_gt0=pooled[,"p_gt0"],
-      dataset=ds,
-      treatment=tr
-    )
-    
-    coeff_file <- file.path(out_dir,paste0("ex2_coeffs_",tr,".csv"))
-    fwrite(tbl, coeff_file)
-    
-    msg("Saved EX2 coefficient table: ", coeff_file)
-    
-    outputs[[tr]] <- tbl
   }
   
   invisible(outputs)
