@@ -1,263 +1,198 @@
 # ============================================================
-# scripts/analysis/12_rq1_fit_check.R
+# 12_rq1_diagnostics.R
 #
-# RQ1: Bernoulli adequacy check (PPC-style; sequence-wise dispersion)
+# PURPOSE
+#   Posterior predictive check for RQ1 Bernoulli likelihood adequacy.
+#   Detects over/under-dispersion in sequence-wise betting frequencies.
+#   Flags Beta-Binomial robustness if PPC is inadequate.
 #
-# Goal (per prereg):
-#   Detect systematic lack of fit of Bernoulli likelihood for b_is,
-#   specifically over/under-dispersion in sequence-wise betting frequencies.
+# METHOD
+#   For each treatment x tag:
+#   - Compute observed per-sequence betting rates p_obs[s]
+#   - Draw K_ppc posterior predictive replications
+#   - Compute dispersion statistic D = var_s(p_s) for observed and replicated
+#   - PPC p-value: P(D_rep >= D_obs)
+#   - Adequate if p in [p_lo, p_hi]
 #
-# Method:
-#   - For each treatment, read:
-#       models/rq1_fit_sequences_<tr>.rds
-#       models/rq1_pid_levels_<tr>.rds
-#       models/rq1_seq_levels_<tr>.rds
-#     plus master_sequences.csv.
-#   - Compute observed per-sequence betting rates p_obs[s].
-#   - Posterior predictive:
-#       y_rep[t] ~ Bernoulli_logit(alpha + u[pid[t]] + b[sid[t]])
-#     Aggregate to p_rep[k,s] and compute dispersion statistic:
-#       D = var_s(p_s)
-#   - Posterior predictive p-value:
-#       p = P(D_rep >= D_obs)
-#   - Print:
-#       "RQ1 Bernoulli PPC: adequate" if p in [0.05, 0.95]
-#       else "inadequate (flag beta-binomial robustness)"
+# INPUT
+#   path_src/master_sequences.csv
+#   path_mod/rq1_fit_sequences_<tr>_<tag>.rds
+#   path_mod/rq1_pid_levels_<tr>_<tag>.rds
+#   path_mod/rq1_seq_levels_<tr>_<tag>.rds
+#   path_mod/drift_decisions.rds
 #
-# Output:
-#   data/clean/<ds>/output/rq1_fit_check_<tr>.csv
-#     with D_obs, ppc_p, interval, K_used, T, S, N
+# OUTPUT
+#   path_out/rq1_diagnostics.csv
+#
+# NOTES
+#   - Adequate flag controls whether rq1_stan(robustness=TRUE) fits BB model
+#   - PPC interval [p_lo, p_hi] from cfg$model$ppc$rq1_interval
 # ============================================================
-
-library(data.table)
-library(rstan)
 
 rq1_diagnostics <- function(cfg) {
   
-  ds   <- as.character(cfg$run$dataset)
-  seed <- as.integer(cfg$run$seed)
+  seed   <- as.integer(cfg$run$seed)
   tr_vec <- unique(as.character(cfg$run$treatment))
   
-  # ------------------------------------------------------------
-  # PPC controls (from model config)
-  # ------------------------------------------------------------
   stopifnot(!is.null(cfg$model), !is.null(cfg$model$ppc))
   
-  ds <- as.character(cfg$run$dataset)
+  K_ppc <- as.integer(cfg$model$ppc$rq1_k)
+  stopifnot(length(K_ppc) == 1L, is.finite(K_ppc), K_ppc >= 50L)
   
-  # Number of posterior draws for PPC
-  K_ppc <- cfg$model$ppc$rq1_k[[ds]]
-  stopifnot(
-    length(K_ppc) == 1L,
-    is.finite(K_ppc),
-    K_ppc >= 50L
-  )
-  K_ppc <- as.integer(K_ppc)
-  
-  # Adequacy interval
-  stopifnot(!is.null(cfg$model$ppc$rq1_interval))
   p_lo <- as.numeric(cfg$model$ppc$rq1_interval[1])
   p_hi <- as.numeric(cfg$model$ppc$rq1_interval[2])
+  stopifnot(is.finite(p_lo), is.finite(p_hi), p_lo > 0, p_hi < 1, p_lo < p_hi)
   
-  stopifnot(
-    is.finite(p_lo), is.finite(p_hi),
-    p_lo > 0, p_hi < 1,
-    p_lo < p_hi
-  )
+  f_out   <- file.path(path_out, "rq1_diagnostics.csv")
+  f_drift <- file.path(path_mod, "drift_decisions.rds")
   
-  # RNG seed for PPC subsampling / simulation
-  seed <- cfg$run$seed
-  if (is.null(seed)) seed <- 12345L
-  seed <- as.integer(seed)
+  if (should_skip(f_out, cfg, "output", "RQ1 diagnostics")) return(invisible(NULL))
   
-  mod_dir <- path_mod_ds(ds)
-  out_dir <- path_out_ds(ds)
-  dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+  stopifnot(file.exists(f_drift))
+  drift_decisions <- readRDS(f_drift)
   
-  # --- load master once ---
-  f_master <- file.path(path_clean_ds(ds), "master_sequences.csv")
+  f_master <- file.path(path_src, "master_sequences.csv")
   stopifnot(file.exists(f_master))
+  
   dt <- fread(f_master, encoding = "UTF-8")
+  stopifnot(all(c("pid", "treat", "stake", "seq", "block") %in% names(dt)))
   
-  required <- c("pid", "treat", "stake", "seq")
-  missing <- setdiff(required, names(dt))
-  if (length(missing) > 0) stop("master_sequences.csv missing columns: ", paste(missing, collapse = ", "))
-  
-  dt[, pid := as.character(pid)]
-  dt[, treat := as.character(treat)]
-  dt[, seq := as.character(seq)]
-  dt[, stake := as.numeric(stake)]
+  dt[, pid     := as.character(pid)]
+  dt[, treat   := as.character(treat)]
+  dt[, seq     := as.character(seq)]
+  dt[, stake   := as.numeric(stake)]
   dt[is.na(stake), stake := 0]
-  dt[, y := as.integer(stake > 0)]  # RQ1 definition
+  dt[, y       := as.integer(stake > 0)]
+  dt[, block   := as.integer(block)]
+  dt[, block_c := as.numeric(block) - 2.5]
   
-  # helper: safe mean by group (ensures integer counts)
-  seq_rate <- function(d) {
-    # returns data.table(sequence, n_trials, p_obs)
-    d[, .(n_trials = .N, p_obs = mean(y)), by = seq]
-  }
-  
-  outputs <- list()
+  tags     <- c("full", "confirmatory")
+  all_rows <- list()
   
   for (tr in tr_vec) {
-    
-    f_fit <- file.path(mod_dir, paste0("rq1_fit_sequences_", tr, "_conf.rds"))
-    f_pid <- file.path(mod_dir, paste0("rq1_pid_levels_", tr, "_conf.rds"))
-    f_seq <- file.path(mod_dir, paste0("rq1_seq_levels_", tr, "_conf.rds"))
-    
-    if (!file.exists(f_fit) || !file.exists(f_pid) || !file.exists(f_seq)) {
-      warning("RQ1 fit check: missing Stan artifacts for tr='", tr, "'. Skipping.")
-      next
-    }
-    
-    d <- dt[treat == tr]
-    if (nrow(d) == 0) {
-      warning("RQ1 fit check: no rows in master for tr='", tr, "'. Skipping.")
-      next
-    }
-    
-    pid_levels <- as.character(readRDS(f_pid))
-    seq_levels <- as.character(readRDS(f_seq))
-    
-    # (Optional but helpful) enforce full design: 64 sequences expected
-    # If your experiment always includes 64 sequences per treatment, keep this strict.
-    # Otherwise, comment it out.
-    stopifnot(length(seq_levels) == 64L)
-    
-    # align indices EXACTLY as used in Stan fitting
-    d[, pid_i := match(pid, pid_levels)]
-    d[, sid_s := match(seq, seq_levels)]
-    if (anyNA(d$pid_i)) stop("RQ1 fit check: pid mismatch vs pid_levels in tr='", tr, "'.")
-    if (anyNA(d$sid_s)) stop("RQ1 fit check: seq mismatch vs seq_levels in tr='", tr, "'.")
-    
-    N <- length(pid_levels)
-    S <- length(seq_levels)
-    Tn <- nrow(d)
-    
-    # observed per-sequence betting rates (aligned to seq_levels)
-    obs_tbl <- seq_rate(d)
-    setkey(obs_tbl, seq)
-    p_obs <- obs_tbl[.(seq_levels), p_obs]
-    n_trials <- obs_tbl[.(seq_levels), n_trials]
-    p_obs[is.na(p_obs)] <- 0  # should not happen if all sequences exist
-    n_trials[is.na(n_trials)] <- 0L
-    
-    # dispersion statistic: variance across sequences of observed rates
-    D_obs <- stats::var(p_obs)
-    
-    # extract posterior draws
-    fit <- readRDS(f_fit)
-    post <- rstan::extract(fit)
-    if (is.null(post$alpha) || is.null(post$u) || is.null(post$b)) {
-      stop("RQ1 fit check: fit missing alpha/u/b in tr='", tr, "'.")
-    }
-    
-    alpha <- as.numeric(post$alpha) # K_all
-    u <- post$u                     # K_all x N
-    b <- post$b                     # K_all x S
-    K_all <- length(alpha)
-    
-    stopifnot(is.matrix(u), is.matrix(b))
-    stopifnot(nrow(u) == K_all, ncol(u) == N)
-    stopifnot(nrow(b) == K_all, ncol(b) == S)
-    
-    # choose K draws for PPC
-    if (is.na(K_ppc)) {
-      K_use <- K_all
-      k_idx <- seq_len(K_all)
-    } else {
+    for (tag in tags) {
+      
+      if (tag == "confirmatory" && !isTRUE(cfg$design$a_flags$betting_normative[[tr]])) next
+      
+      f_fit <- file.path(path_mod, paste0("rq1_fit_sequences_", tr, "_", tag, ".rds"))
+      f_pid <- file.path(path_mod, paste0("rq1_pid_levels_",    tr, "_", tag, ".rds"))
+      f_seq <- file.path(path_mod, paste0("rq1_seq_levels_",    tr, "_", tag, ".rds"))
+      
+      if (!file.exists(f_fit) || !file.exists(f_pid) || !file.exists(f_seq)) {
+        warning("RQ1 diagnostics: missing Stan artifacts for tr='", tr,
+                "', tag='", tag, "'. Skipping.")
+        next
+      }
+      
+      pid_levels <- as.character(readRDS(f_pid))
+      seq_levels <- as.character(readRDS(f_seq))
+      stopifnot(length(seq_levels) == 64L)
+      
+      d <- dt[treat == tr & pid %in% pid_levels]
+      if (nrow(d) == 0) next
+      
+      d[, pid_i := match(pid, pid_levels)]
+      d[, sid_s := match(seq, seq_levels)]
+      stopifnot(!anyNA(d$pid_i), !anyNA(d$sid_s))
+      
+      N  <- length(pid_levels)
+      S  <- length(seq_levels)
+      Tn <- nrow(d)
+      
+      # ---- Drift config ----
+      key           <- paste(tr, tag, "bet", sep = "_")
+      drift_res     <- drift_decisions[[key]]
+      include_drift <- !is.null(drift_res) && isTRUE(drift_res$drift)
+      drift_type    <- if (!is.null(drift_res)) drift_res$drift_type else "none"
+      
+      # ---- Observed dispersion ----
+      obs_tbl <- d[, .(p_obs = mean(y)), by = seq]
+      setkey(obs_tbl, seq)
+      p_obs <- obs_tbl[.(seq_levels), p_obs]
+      p_obs[is.na(p_obs)] <- 0
+      D_obs <- stats::var(p_obs)
+      
+      # ---- Load posterior ----
+      fit  <- readRDS(f_fit)
+      post <- rstan::extract(fit)
+      stopifnot(!is.null(post$alpha), !is.null(post$u), !is.null(post$b),
+                !is.null(post$gamma_drift))
+      
+      alpha       <- as.numeric(post$alpha)
+      u           <- post$u
+      b           <- post$b
+      gamma_drift <- as.numeric(post$gamma_drift)
+      K_all       <- length(alpha)
+      
+      stopifnot(is.matrix(u), nrow(u) == K_all, ncol(u) == N)
+      stopifnot(is.matrix(b), nrow(b) == K_all, ncol(b) == S)
+      
       K_use <- min(K_ppc, K_all)
       set.seed(seed + 1001L)
       k_idx <- sort(sample.int(K_all, K_use, replace = FALSE))
-    }
-    
-    # precompute trial-level indices
-    pid_i <- d$pid_i
-    sid_s <- d$sid_s
-    
-    # Posterior predictive dispersion draws
-    # We simulate y_rep per draw, then compute per-seq mean and variance across seq.
-    # Implementation note: we compute per-seq sums via accumarray-like split.
-    D_rep <- numeric(K_use)
-    
-    # For speed: split trial indices by sequence once
-    idx_by_s <- split(seq_len(Tn), sid_s)
-    
-    # RNG for simulation
-    set.seed(seed + 2000L)
-    
-    for (jj in seq_len(K_use)) {
-      k <- k_idx[jj]
       
-      # linear predictor per trial
-      eta_t <- alpha[k] + u[k, pid_i] + b[k, sid_s]
-      p_t <- plogis(eta_t)
+      pid_i    <- d$pid_i
+      sid_s    <- d$sid_s
+      block_c  <- d$block_c
+      idx_by_s <- split(seq_len(Tn), sid_s)
       
-      # simulate y_rep
-      y_rep <- rbinom(Tn, size = 1L, prob = p_t)
+      # ---- PPC replications ----
+      set.seed(seed + 2000L)
+      D_rep <- numeric(K_use)
       
-      # per-sequence means
-      p_rep_s <- numeric(S)
-      for (s in seq_len(S)) {
-        idx <- idx_by_s[[as.character(s)]]
-        # idx should exist for every s if all sequences are present
-        if (is.null(idx) || length(idx) == 0L) {
-          p_rep_s[s] <- 0
-        } else {
-          p_rep_s[s] <- mean(y_rep[idx])
+      for (jj in seq_len(K_use)) {
+        k   <- k_idx[jj]
+        eta <- alpha[k] + u[k, pid_i] + b[k, sid_s]
+        if (include_drift) eta <- eta + gamma_drift[k] * block_c
+        y_rep <- rbinom(Tn, size = 1L, prob = plogis(eta))
+        
+        p_rep_s <- numeric(S)
+        for (s in seq_len(S)) {
+          idx <- idx_by_s[[as.character(s)]]
+          p_rep_s[s] <- if (length(idx) == 0L) 0 else mean(y_rep[idx])
         }
+        D_rep[jj] <- stats::var(p_rep_s)
       }
       
-      D_rep[jj] <- stats::var(p_rep_s)
+      ppc_p    <- mean(D_rep >= D_obs)
+      adequate <- (ppc_p >= p_lo && ppc_p <= p_hi)
+      
+      if (adequate) {
+        msg("RQ1 PPC (", tr, "/", tag, "): adequate | p=",
+            sprintf("%.3f", ppc_p), " | D_obs=", signif(D_obs, 4),
+            " | drift=", drift_type)
+      } else {
+        warning("RQ1 PPC (", tr, "/", tag,
+                "): INADEQUATE -- Beta-Binomial robustness will be fitted | p=",
+                sprintf("%.3f", ppc_p), " | D_obs=", signif(D_obs, 4),
+                " | drift=", drift_type)
+      }
+      
+      all_rows[[paste(tr, tag, sep = "_")]] <- data.table(
+        treatment    = tr,
+        tag          = tag,
+        drift        = drift_type,
+        N            = N,
+        S            = S,
+        T            = Tn,
+        K_all        = K_all,
+        K_used       = K_use,
+        D_obs        = D_obs,
+        D_rep_median = stats::median(D_rep),
+        D_rep_q025   = stats::quantile(D_rep, 0.025),
+        D_rep_q975   = stats::quantile(D_rep, 0.975),
+        ppc_p        = ppc_p,
+        adequate     = adequate,
+        p_lo         = p_lo,
+        p_hi         = p_hi
+      )
     }
-    
-    # PPC p-value: P(D_rep >= D_obs)
-    ppc_p <- mean(D_rep >= D_obs)
-    
-    adequate <- (ppc_p >= p_lo && ppc_p <= p_hi)
-    
-    if (adequate) {
-      msg("RQ1 Bernoulli PPC (tr=", tr, "): adequate | p=", sprintf("%.3f", ppc_p),
-          " | D_obs=", signif(D_obs, 4))
-    } else {
-      warning("RQ1 Bernoulli PPC (tr=", tr, "): INADEQUATE (flag beta-binomial robustness) | p=",
-              sprintf("%.3f", ppc_p), " | D_obs=", signif(D_obs, 4))
-    }
-    
-    tbl <- data.table(
-      dataset = ds,
-      treatment = tr,
-      N = N,
-      S = S,
-      T = Tn,
-      K_all = K_all,
-      K_used = K_use,
-      D_obs = D_obs,
-      D_rep_median = stats::median(D_rep),
-      D_rep_q025 = stats::quantile(D_rep, 0.025),
-      D_rep_q975 = stats::quantile(D_rep, 0.975),
-      ppc_p = ppc_p,
-      adequate = adequate,
-      p_interval_lo = p_lo,
-      p_interval_hi = p_hi
-    )
-    
-    f_out <- file.path(out_dir, paste0("rq1_fit_check_", tr, ".csv"))
-    
-    if (should_skip(
-      paths = f_out,
-      cfg   = cfg,
-      type  = "output",
-      label = paste0("RQ1 fit check (", ds, "/", tr, ")")
-    )) {
-      next
-    }
-    
-    outputs[[tr]] <- tbl
   }
   
-  invisible(outputs)
+  if (length(all_rows) > 0) {
+    fwrite(rbindlist(all_rows), f_out)
+    msg("Saved: ", f_out)
+  }
+  
+  invisible(all_rows)
 }
-
-# Example:
-# source(here::here("scripts","analysis","12_rq1_fit_check.R"))
-# rq1_fit_check(cfg)

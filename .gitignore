@@ -5,7 +5,6 @@ __pycache__/
 *.py[codz]
 *$py.class
 *.so
-
 .Python
 build/
 develop-eggs/
@@ -24,13 +23,10 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
 *.manifest
 *.spec
-
 pip-log.txt
 pip-delete-this-directory.txt
-
 htmlcov/
 .tox/
 .nox/
@@ -44,10 +40,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-
 *.mo
 *.pot
-
 
 # =====================================================
 # Logs / OS / editor
@@ -55,12 +49,10 @@ cover/
 *.log
 .DS_Store
 *~
-
 .idea/
 .ruff_cache/
 .cursorignore
 .cursorindexingignore
-
 
 # =====================================================
 # Virtual environments
@@ -74,7 +66,6 @@ ENV/
 env.bak/
 venv.bak/
 
-
 # =====================================================
 # oTree / deployment artifacts
 # =====================================================
@@ -84,7 +75,6 @@ _static_root
 _bots*/
 __temp*/
 
-
 # =====================================================
 # Databases
 # =====================================================
@@ -92,17 +82,16 @@ db.sqlite3
 db.sqlite3-journal
 *.sqlite3
 
-
 # =====================================================
 # R / RStudio
 # =====================================================
 .Rproj.user/
 .Rhistory
 .RData
+.Ruserdata
 analysis/.Rproj.user/
 analysis/.Rhistory
 analysis/.RData
-
 
 # =====================================================
 # Stan compiled objects (keep .stan source files)
@@ -112,33 +101,15 @@ analysis/stan/*.o
 analysis/stan/*.d
 analysis/stan/*.hpp
 
-
 # =====================================================
 # Data policy
 # =====================================================
-
 # Never commit raw human subject data
-data/raw/
+raw_data/
 
-# If you do NOT want clean subject-level data on GitHub,
-# uncomment the next line:
-data/clean/
-
-
-# =====================================================
-# Regenerable analysis artifacts
-# =====================================================
-
-# Dataset-specific outputs
-data/clean/*/output/
-data/clean/*/figures/
-data/clean/*/models/
-
-# Legacy analysis folders (if used)
-analysis/output/
-analysis/figures/
-analysis/models/
-
+# Never commit participant-level analysis data
+# ETL outputs, model fits, figures are all regenerable
+analysis/data/
 
 # =====================================================
 # LaTeX build artifacts
@@ -150,3 +121,5 @@ analysis/models/
 *.synctex.gz
 *.bbl
 *.blg
+*.fls
+*.fdb_latexmk

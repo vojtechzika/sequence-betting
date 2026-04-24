@@ -2,7 +2,6 @@
 # 02_model_cfg.R
 # Estimation, PPC, and simulation controls
 # ============================================================
-
 model_cfg <- function() {
   
   list(
@@ -13,38 +12,37 @@ model_cfg <- function() {
     stan = list(
       
       mpl = list(
-        pilot = list(iter=1000, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
-        main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
+        prior = list(# Bland (2023)
+          r_mean      = 0.27,
+          r_sd        = 0.36,   
+          lambda_mean = 30,     # lognormal mean on natural scale
+          lambda_sd   = 0.5     # lognormal SD on log scale
+        ),
+        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       rq1 = list(
-        pilot = list(iter=1500, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
-        main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
+        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       rq2 = list(
-        pilot = list(iter=1500, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
-        main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
+        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       rq3 = list(
-        pilot = list(iter=1500, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
-        main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
+        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       rq4 = list(
-        pilot = list(iter=1500, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
-        main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
+        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       ex1_2 = list(
-        pilot = list(iter=1500, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
-        main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
+        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       ex2 = list(
-        pilot = list(iter=1500, warmup=750,  chains=2, adapt_delta=0.90, treedepth=12),
-        main  = list(iter=2000, warmup=1000, chains=4, adapt_delta=0.95, treedepth=12)
+        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       )
     ),
     
@@ -52,9 +50,9 @@ model_cfg <- function() {
     # Posterior predictive replicates
     # --------------------------------------------------------
     ppc = list(
-      rq1_k = list(pilot = 300L,  main = 1000L),
-      rq3_k = list(pilot = 300L,  main = 1000L),
-      rq4_k = list(pilot = 300L,  main = 1000L),
+      rq1_k        = 1000L,
+      rq3_k        = 1000L,
+      rq4_k        = 1000L,
       rq1_interval = c(0.05, 0.95)
     ),
     
@@ -62,8 +60,8 @@ model_cfg <- function() {
     # Simulation / resampling reps
     # --------------------------------------------------------
     simulation = list(
-      ex1_trep = list(pilot = 300L,  main = 1000L),
-      ex2_trep = list(pilot = 300L,  main = 1000L)
+      ex1_trep = 1000L,
+      ex2_trep = 1000L
     ),
     
     # --------------------------------------------------------

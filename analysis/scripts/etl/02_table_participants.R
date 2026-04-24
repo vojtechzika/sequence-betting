@@ -1,10 +1,25 @@
-# scripts/02_table_participants.R
-source(here::here("scripts", "00_setup.R"))
+# ============================================================
+# 02_table_participants.R
+#
+# PURPOSE
+#   Extracts participant-level variables from the merged oTree export,
+#   renames columns to short pipeline names, and saves participants.csv.
+#
+# INPUT
+#   path_src/merged.csv
+#
+# OUTPUT
+#   path_src/participants.csv
+#
+# NOTES
+#   - One row per participant (participant.code)
+#   - Stops if any expected column is missing from merged.csv
+#   - Warns if duplicate participant codes are found before deduplication
+# ============================================================
 
 make_participants_table <- function(cfg) {
-  dataset <- as.character(cfg$run$dataset)
   
-  infile <- file.path(path_clean_ds(dataset), "merged.csv")
+  infile <- file.path(path_src, "merged.csv")
   stopifnot(file.exists(infile))
   
   dt <- data.table::fread(infile, encoding = "UTF-8")
@@ -14,7 +29,6 @@ make_participants_table <- function(cfg) {
   # Active variables define schema of participants.csv.
   # Commented variables are intentionally excluded.
   # ------------------------------------------------------------------
-  
   vars <- c(
     
     # --- Core participant info ---
@@ -41,9 +55,6 @@ make_participants_table <- function(cfg) {
     "payout.1.player.paid_mpl_choice",
     "payout.1.player.paid_mpl_amount",
     "payout.1.player.total_paid"
-    
-    # Example of excluding:
-    # "some_unused_field"
   )
   
   # Ensure all active vars exist
@@ -52,16 +63,22 @@ make_participants_table <- function(cfg) {
     stop("Missing expected columns: ", paste(missing, collapse = ", "))
   }
   
-  # Keep only selected columns
   p <- dt[, ..vars]
   
-  # One row per participant
+  # ---- Warn if duplicates exist before deduplication ----
+  dup_codes <- p[duplicated(participant.code), unique(participant.code)]
+  if (length(dup_codes) > 0) {
+    warning(
+      length(dup_codes), " participant code(s) have duplicate rows. ",
+      "Keeping first occurrence. Check merged.csv for data issues.\n",
+      "Affected codes: ", paste(dup_codes, collapse = ", ")
+    )
+  }
   p <- unique(p, by = "participant.code")
   
   # ------------------------------------------------------------------
-  # Rename (this does NOT define schema; vars does)
+  # Rename
   # ------------------------------------------------------------------
-  
   rename_map <- c(
     "participant.code"                  = "pid",
     "participant.label"                 = "label",
@@ -75,8 +92,6 @@ make_participants_table <- function(cfg) {
     "session.config.participation_fee"  = "fee",
     "intro.1.player.age"                = "age",
     "intro.1.player.sex"                = "sex",
-    
-    # payout
     "payout.1.player.id_in_group"       = "payout_id",
     "payout.1.player.role"              = "payout_role",
     "payout.1.player.payoff"            = "payout_payoff",
@@ -92,25 +107,17 @@ make_participants_table <- function(cfg) {
   old <- old[old %in% names(p)]
   data.table::setnames(p, old, rename_map[old])
   
-  # ------------------------------------------------------------------
-  # Keep final columns derived ONLY from vars
-  # ------------------------------------------------------------------
-  
+  # Keep final columns
   final_vars <- vars
   final_vars <- ifelse(final_vars %in% names(rename_map),
                        rename_map[final_vars],
                        final_vars)
-  
   final_vars <- final_vars[final_vars %in% names(p)]
   p <- p[, ..final_vars]
   
-  # ------------------------------------------------------------------
-  
-  outfile <- file.path(path_clean_ds(dataset), "participants.csv")
+  outfile <- file.path(path_src, "participants.csv")
   data.table::fwrite(p, outfile)
   
   msg("Participants table saved:", outfile, "| rows:", nrow(p))
   invisible(p)
 }
-
-# make_participants_table("pilot")

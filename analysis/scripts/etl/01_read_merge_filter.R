@@ -1,33 +1,50 @@
-source(here::here("scripts", "00_setup.R"))
+# ============================================================
+# 01_read_merge_filter.R
+#
+# PURPOSE
+#   Reads all oTree CSV exports from the raw data folder, filters to
+#   completed participants (page = "finished"), de-duplicates across
+#   backup files, and saves a single merged CSV.
+#
+# INPUT
+#   path_raw/          -- one or more oTree CSV exports (.csv)
+#
+# OUTPUT
+#   path_src/merged.csv
+#
+# DE-DUPLICATION
+#   If a participant.code appears in more than one source file, the
+#   script stops with an error listing the duplicates. This forces
+#   explicit resolution rather than silently picking a version.
+#   To use backup files: remove older exports from path_raw before running.
+#
+# NOTES
+#   - Filters to rows where participant._current_page_name == "finished"
+#   - Adds source_file and source_mtime provenance columns
+#   - Handles variant participant code column names
+# ============================================================
 
 run_read_merge_filter <- function(cfg) {
-  dataset <- as.character(cfg$run$dataset)
   
-  # --------------------------------------------
-  # Use dataset-specific raw folder
-  # --------------------------------------------
-  raw_dir <- path_raw_ds(dataset)
-  if (!dir.exists(raw_dir)) stop("Raw dataset folder does not exist: ", raw_dir)
+  if (!dir.exists(path_raw)) stop("Raw data folder does not exist: ", path_raw)
   
   files <- list.files(
-    raw_dir,
-    pattern = "\\.csv$",
-    full.names = TRUE,
+    path_raw,
+    pattern     = "\\.csv$",
+    full.names  = TRUE,
     ignore.case = TRUE
   )
-  stopifnot(length(files) > 0)
+  if (length(files) == 0) stop("No CSV files found in: ", path_raw)
   
-  msg("Dataset:", dataset)
-  msg("Raw dir:", raw_dir)
+  msg("Data folder:", cfg$run$data_folder)
+  msg("Raw dir:", path_raw)
   msg("Files detected:", length(files))
   
   total_rows_before <- 0L
   total_rows_after  <- 0L
   
   dt_list <- lapply(files, function(f) {
-    
     x <- data.table::fread(f, encoding = "UTF-8")
-    
     rows_before <- nrow(x)
     total_rows_before <<- total_rows_before + rows_before
     
@@ -36,7 +53,6 @@ run_read_merge_filter <- function(cfg) {
     }
     
     x <- x[tolower(participant._current_page_name) == "finished"]
-    
     rows_after <- nrow(x)
     total_rows_after <<- total_rows_after + rows_after
     
@@ -45,20 +61,16 @@ run_read_merge_filter <- function(cfg) {
         "| kept:", rows_after,
         "| dropped:", rows_before - rows_after)
     
-    # provenance
-    x[, source_file := basename(f)]
+    x[, source_file  := basename(f)]
     x[, source_mtime := as.POSIXct(file.info(f)$mtime)]
-    
     x
   })
   
   dt <- data.table::rbindlist(dt_list, fill = TRUE)
   
-  # --------------------------------------------
-  # De-duplicate by participant.code across backups
-  # Keep the newest row per participant.code (by file mtime)
-  # --------------------------------------------
-  code_candidates <- c("participant.code", "participant_code", "participant_code_", "participantcode")
+  # ---- Resolve participant code column ----
+  code_candidates <- c("participant.code", "participant_code",
+                       "participant_code_", "participantcode")
   code_col <- code_candidates[code_candidates %in% names(dt)][1]
   
   if (is.na(code_col) || !nzchar(code_col)) {
@@ -70,36 +82,36 @@ run_read_merge_filter <- function(cfg) {
     )
   }
   
-  # Normalize to a single column name for internal handling
   if (code_col != "participant.code") {
     data.table::setnames(dt, code_col, "participant.code")
-    code_col <- "participant.code"
   }
   
-  # Drop empty codes (should not happen, but protects the dedup logic)
-  dt <- dt[!is.na(get(code_col)) & trimws(as.character(get(code_col))) != ""]
-  dt[, (code_col) := as.character(get(code_col))]
+  dt <- dt[!is.na(participant.code) & trimws(as.character(participant.code)) != ""]
+  dt[, participant.code := as.character(participant.code)]
   
-  # Keep newest file version per participant.code
-  data.table::setorder(dt, participant.code, source_mtime)
-  n_before_dedup <- uniqueN(dt$participant.code)
+  # ---- De-duplication: stop if any participant appears in more than one file ----
+  dup_check <- dt[, .(n_files = uniqueN(source_file)), by = participant.code]
+  dups      <- dup_check[n_files > 1]
   
-  dt_unique <- dt[, .SD[.N], by = participant.code]  # last row within each code after sorting
-  n_after_dedup <- nrow(dt_unique)
+  if (nrow(dups) > 0) {
+    stop(
+      "\nThe following participant codes appear in more than one source file:\n",
+      paste0("  ", dups$participant.code, collapse = "\n"),
+      "\nRemove older export files from ", path_raw,
+      " so that each participant appears in exactly one file.\n"
+    )
+  }
   
-  msg("----------------------------------------")
-  msg("Unique participant.code before dedup (from merged finished rows):", n_before_dedup)
-  msg("Unique participant.code after dedup:", n_after_dedup)
-  msg("Duplicates removed:", nrow(dt) - nrow(dt_unique))
+  n_unique <- uniqueN(dt$participant.code)
   
-  outfile <- file.path(path_clean_ds(dataset), "merged.csv")
-  data.table::fwrite(dt_unique, outfile)
+  outfile <- file.path(path_src, "merged.csv")
+  data.table::fwrite(dt, outfile)
   
   msg("----------------------------------------")
   msg("Total rows before filter:", total_rows_before)
-  msg("Total rows kept (finished, across all files):", total_rows_after)
-  msg("Final merged unique rows:", nrow(dt_unique))
+  msg("Total rows kept (finished):", total_rows_after)
+  msg("Unique participants:", n_unique)
   msg("Saved to:", outfile)
   
-  invisible(dt_unique)
+  invisible(dt)
 }

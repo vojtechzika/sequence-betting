@@ -1,10 +1,25 @@
-# scripts/03_table_sequences.R
-source(here::here("scripts", "00_setup.R"))
+# ============================================================
+# 03_table_sequences.R
+#
+# PURPOSE
+#   Extracts sequence-level (trial-level) variables from the merged
+#   oTree export, melts from wide to long format, applies controlled
+#   coercions, and saves sequences.csv.
+#
+# INPUT
+#   path_src/merged.csv
+#
+# OUTPUT
+#   path_src/sequences.csv
+#
+# NOTES
+#   - One row per participant x sequence trial
+#   - Commented variables in vars are intentionally excluded
+# ============================================================
 
 make_sequences_table <- function(cfg) {
-  dataset <- as.character(cfg$run$dataset)
   
-  infile <- file.path(path_clean_ds(dataset), "merged.csv")
+  infile <- file.path(path_src, "merged.csv")
   stopifnot(file.exists(infile))
   dt <- data.table::fread(infile, encoding = "UTF-8")
   
@@ -14,40 +29,39 @@ make_sequences_table <- function(cfg) {
   vars <- c(
     
     # --- Structural / oTree meta ---
-    # "id_in_group",     # oTree internal group position (not analytically relevant in 1-player task)
-    # "role",            # oTree role label (unused in single-role design)
-    # "payoff",          # cumulative or round payoff assigned by oTree (redundant if round_earnings kept)
-    # "t",               # internal trial counter (may duplicate trial_id or pos_in_block)
+    # "id_in_group",
+    # "role",
+    # "payoff",
+    # "t",
     
     # --- Core sequence task variables ---
-    "trial_id",          # unique trial identifier within participant
-    "seq",               # 6-toss sequence shown (e.g., HHTOHO)
-    "uid",               # unique sequence identifier (stable across participants)
-    "block",             # block number
-    "pos_in_block",      # position within block
-    "m_used",            # multiplier used in this trial
-    # "treatment",       # treatment condition (sequence-level; constant per participant)
-    "realized",          # actual realized outcome (H or O)
-    "win",               # indicator whether participant won (1/0 or TRUE/FALSE)
-    "round_earnings",    # earnings from this trial
-    "side",              # side (H or O) a participant chose to bet on
-    "stake",             # amount wagered
-    "screen_time_ms",    # decision screen time in milliseconds
-    "button_order"      # randomized order of response buttons (HO / OH)
+    "trial_id",
+    "seq",
+    "uid",
+    "block",
+    "pos_in_block",
+    "m_used",
+    # "treatment",
+    "realized",
+    "win",
+    "round_earnings",
+    "side",
+    "stake",
+    "screen_time_ms",
+    "button_order"
     
     # --- Eye-tracking / device diagnostics ---
-    # "aoi_boxes_px",    # AOI bounding boxes (pixel coordinates)
-    # "viewport_w_px",   # browser viewport width (px)
-    # "viewport_h_px",   # browser viewport height (px)
-    # "dpr",             # device pixel ratio
+    # "aoi_boxes_px",
+    # "viewport_w_px",
+    # "viewport_h_px",
+    # "dpr",
     
     # --- Comprehension checks ---
-    # --- Only first sequence has comprehension checks, so these will be mostly NA in the long format, plus participant MUST complete checks to continue ---
-    # "cq_keep_endowment",  # comprehension: keep endowment question
-    # "cq_multiplier",      # comprehension: multiplier question
-    # "cq_toss",            # comprehension: coin toss probability question
-    # "cq_payment",         # comprehension: payment rule question
-    # "cq_recency"          # comprehension: recency understanding question
+    # "cq_keep_endowment",
+    # "cq_multiplier",
+    # "cq_toss",
+    # "cq_payment",
+    # "cq_recency"
   )
   
   # ---- Identify sequence indices present (expect 1..64) ----
@@ -80,25 +94,11 @@ make_sequences_table <- function(cfg) {
     stop("Unexpected sequences.* columns present: ", paste(other_seq_cols, collapse = ", "))
   }
   
-  # ---- Coercion helpers ----
+  # ---- Coercion helper ----
   to_num <- function(x) {
     x <- trimws(as.character(x))
     x[x %in% c("", "NA", "NaN", "None", "null", "NULL")] <- NA
     suppressWarnings(as.numeric(x))
-  }
-  
-  to_bool01 <- function(x) {
-    x <- trimws(tolower(as.character(x)))
-    x[x %in% c("", "na", "nan", "none", "null", "NULL")] <- NA
-    data.table::fifelse(
-      x %in% c("1", "true", "t", "yes", "y"),
-      1,
-      data.table::fifelse(
-        x %in% c("0", "false", "f", "no", "n"),
-        0,
-        suppressWarnings(as.numeric(x))
-      )
-    )
   }
   
   # Normalize melt cols to character to avoid melt type warnings
@@ -107,7 +107,7 @@ make_sequences_table <- function(cfg) {
   # ---- Melt wide -> long (ONLY vars) ----
   long <- data.table::melt(
     dt_small,
-    id.vars = id_cols,
+    id.vars      = id_cols,
     measure.vars = mv,
     variable.name = "seq_no"
   )
@@ -133,10 +133,11 @@ make_sequences_table <- function(cfg) {
   if ("trial_id" %in% names(long)) long[, trial_id := as.integer(to_num(trial_id))]
   if ("realized" %in% names(long)) {
     long[, realized := toupper(trimws(as.character(realized)))]
-    long[!realized %in% c("H", "O"), realized := NA_character_]
+    valid_labels <- toupper(names(cfg$design$seq$label_recode))
+    long[!realized %in% valid_labels, realized := NA_character_]
   }
   
-  # ---- Rename columns (this does NOT define what we keep) ----
+  # ---- Rename columns ----
   rename_map <- c(
     pos_in_block   = "pos",
     treatment      = "treat",
@@ -150,15 +151,13 @@ make_sequences_table <- function(cfg) {
   data.table::setnames(long, old, rename_map[old])
   
   # ---- Keep final columns derived ONLY from vars (+ pid, seq_no) ----
-  # Translate vars through rename_map where applicable
   final_vars <- vars
   final_vars <- ifelse(final_vars %in% names(rename_map), rename_map[final_vars], final_vars)
-  keep_cols <- c("pid", "seq_no", final_vars)
-  keep_cols <- keep_cols[keep_cols %in% names(long)]
-  long <- long[, ..keep_cols]
+  keep_cols  <- c("pid", "seq_no", final_vars)
+  keep_cols  <- keep_cols[keep_cols %in% names(long)]
+  long       <- long[, ..keep_cols]
   
-  # ---- Save ----
-  outfile <- file.path(path_clean_ds(dataset), "sequences.csv")
+  outfile <- file.path(path_src, "sequences.csv")
   data.table::fwrite(long, outfile)
   msg("Sequences table saved:", outfile, "| rows:", nrow(long))
   invisible(long)

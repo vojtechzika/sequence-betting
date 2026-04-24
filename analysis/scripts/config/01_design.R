@@ -5,8 +5,6 @@
 
 design_cfg <- function() {
   
-  
-  
   list(
     
     # --------------------------------------------------------
@@ -24,22 +22,31 @@ design_cfg <- function() {
         m19 = 1.9
       ),
       
+      # --------------------------------------------------------
+      # Label translation: Czech oTree labels -> English
+      # --------------------------------------------------------
+      label_recode = list(
+        H = "H", # heads are coded as H in oTree
+        O = "T",  # tails are coded as O in oTree 
+        NB = "NB" # no bet is coded as NB in oTree
+      ),
+      
+      # --------------------------------------------------------
+      # Side Labels and Anchors used in pipeline
+      # --------------------------------------------------------
       side_labels = list(
         heads = "H",
-        tails = "O",
+        tails = "T",
         nobet = "NB"
       ),
     
       anchor_labels = list(
         pure_heads = "HHHHHH",
-        pure_tails = "OOOOOO"
+        pure_tails = "TTTTTT"
       )
     
     ),
    
-    
-    
-    
     # --------------------------------------------------------
     # MPL risk elicitation
     # --------------------------------------------------------
@@ -77,7 +84,10 @@ design_cfg <- function() {
     rq2 = list(
       rho      = c(0.05, 0.03, 0.08),
       sd_floor = 2,
-      min_bets = 3L
+      sd_floor_sens_low = 1,
+      sd_floor_sens_high = 5,
+      min_bets = 3L,
+      allin_threshold    = 0.25
     ),
     
     # --------------------------------------------------------
@@ -119,6 +129,33 @@ design_cfg <- function() {
     # --------------------------------------------------------
     exclusion = list(
       P0 = c(0.80, 0.90, 0.95)
+    ),
+    
+    # --------------------------------------------------------
+    # Drift parametrization (preregistered)
+    # --------------------------------------------------------
+  
+    drift = list(
+      
+      # Shared parametrization for all drift terms (preregistered)
+      params = list(
+        linear = list(
+          block_centers    = c(-1.5, -0.5, 0.5, 1.5),
+          prior_gamma_mean = 0,
+          prior_gamma_sd   = 0.3
+        ),
+        categorical = list(
+          prior_gamma_sd = 0.3
+        )
+      ),
+      
+      # Outcome mapped to each RQ
+      rq1 = list(outcome = "bet"),
+      rq2 = list(outcome = "stake"),
+      rq3 = list(outcome = "stake"),
+      rq4 = list(outcome = "side")
     )
+    
+    
   )
 }

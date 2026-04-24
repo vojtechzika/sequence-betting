@@ -7,15 +7,17 @@ run_analysis <- function(cfg) {
   # --- Load Sources --- #
   source(here::here("scripts", "analysis", "01_descriptive_participants.R"))
   source(here::here("scripts", "analysis", "02_descriptive_sequences.R"))
-  source(here::here("scripts", "analysis", "03_drift_check.R"))
+  source(here::here("scripts", "analysis", "03_r_raincloud.R"))
   
   source(here::here("scripts", "analysis", "11_rq1_stan.R"))
   source(here::here("scripts", "analysis", "12_rq1_diagnostics.R"))
   source(here::here("scripts", "analysis", "13_rq1_tables.R")) 
+  source(here::here("scripts", "analysis", "14_rq1_figures.R")) 
 
   source(here::here("scripts", "analysis", "21_rq2_stan.R"))
   source(here::here("scripts", "analysis", "22_rq2_diagnostics.R"))
   source(here::here("scripts", "analysis", "23_rq2_tables.R"))
+  source(here::here("scripts", "analysis", "24_rq2_figures.R")) 
   
   source(here::here("scripts", "analysis", "31_rq3_stan.R"))
   source(here::here("scripts", "analysis", "32_rq3_diagnostics.R"))
@@ -46,21 +48,25 @@ run_analysis <- function(cfg) {
   # ----------------------------
   descriptive_participants(cfg)
   descriptive_sequences(cfg)
-  drift_check(cfg)
+  r_raincloud(cfg)
   
   # ----------------------------
   # 10 Space: RQ1
   # ----------------------------
-  rq1_stan(cfg)
-  # rq1_diagnostics(cfg)
+  rq1_stan(cfg)                      # primary Bernoulli fits
+  rq1_diagnostics(cfg)               # PPC check
+  rq1_stan(cfg, robustness = TRUE)   # BB robustness if PPC inadequate, no-op otherwise
   rq1_tables(cfg)
+  rq1_figures(cfg)
   
   # ----------------------------
   # 20 Space: RQ2 
   # ----------------------------
    rq2_stan(cfg)
-   # rq2_diagnostics(cfg)
+   rq2_diagnostics(cfg)
+   rq2_stan(cfg, robustness = TRUE)   # BB robustness if PPC inadequate, no-op otherwise
    rq2_tables(cfg)
+   rq2_figures(cfg)
    
    # ----------------------------
    # 30 Space: RQ3 
@@ -105,5 +111,5 @@ run_analysis <- function(cfg) {
    ex4_similarity(cfg)
 
   
-  msg("\nAnalysis phase completed for:", cfg$run$dataset, "\n")
+  msg("\nANALYSIS completed for data_folder:", cfg$run$data_folder, "\n")
 }
