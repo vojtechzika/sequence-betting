@@ -2,12 +2,10 @@
 # 21_rq2_stan.R
 #
 # PURPOSE
-#   Fits hierarchical Gaussian models for RQ2 (intensive margin
-#   of betting). Fits per treatment for full sample and
-#   confirmatory subset. Runs sensitivity analyses (alternative
-#   floors and MAD dispersion) for confirmatory subset only.
-#   Optionally fits one-inflated Beta-Binomial robustness model
-#   if PPC flags boundary inflation.
+#   Fits hierarchical stake deviation models for RQ2 (intensive
+#   margin of betting). Always fits both primary and alternative
+#   models. Sensitivity analyses for confirmatory subset only.
+#   Model selection handled downstream in rq2_tables().
 #
 # CONFIRMATORY SUBSET FOR RQ2:
 #   Participants for whom betting is EU-optimal (P(a* > 0) >= tau).
@@ -19,14 +17,16 @@
 #   path_mod/a_star_draws_<tr>.rds       -- optimal stakes
 #   path_mod/a_star_pid_flags_<tr>.rds   -- confirmatory subset
 #   path_mod/drift_decisions.rds         -- drift adjustment
-#   stan/rq2_stakes.stan
+#   stan/rq2_primary.stan                -- Gaussian
+#   stan/rq2_alternative.stan            -- one-inflated Beta-Binomial
 #
 # OUTPUT
-#   path_mod/rq2_fit_sequences_<tr>_<tag>[_bb|_floor*|_mad].rds
-#   path_mod/rq2_pid_levels_<tr>_<tag>[_bb|_floor*|_mad].rds
-#   path_mod/rq2_seq_levels_<tr>_<tag>[_bb|_floor*|_mad].rds
-#   path_mod/rq2_prepared_<tr>_<tag>[_bb|_floor*|_mad].rds
-#   path_out/rq2_excluded_minbets_<tr>_<tag>[_bb|_floor*|_mad].csv
+#   path_mod/rq2_fit_sequences_<tr>_<tag>.rds           -- primary
+#   path_mod/rq2_fit_sequences_<tr>_<tag>_alt.rds       -- alternative
+#   path_mod/rq2_fit_sequences_<tr>_<tag>_floor*.rds    -- sensitivity
+#   path_mod/rq2_fit_sequences_<tr>_<tag>_mad.rds       -- sensitivity
+#   path_mod/rq2_prepared_<tr>_<tag>[_alt|_floor*|_mad].rds
+#   path_out/rq2_excluded_minbets_<tr>_<tag>[...].csv
 #
 # TAGS
 #   full          -- all participants in treatment
@@ -36,35 +36,34 @@
 #   _floor<n> -- alternative sd_floor
 #   _mad      -- MAD dispersion measure
 #
-# ROBUSTNESS:
-#   Called with robustness = TRUE after rq2_diagnostics() has run.
-#   Checks rq2_diagnostics.csv -- exits if adequate.
-#
 # CALL ORDER IN PIPELINE:
-#   rq2_stan(cfg)                    -- primary + sensitivity
-#   rq2_diagnostics(cfg)             -- PPC check
-#   rq2_stan(cfg, robustness = TRUE) -- BB if needed, no-op otherwise
+#   rq2_stan(cfg)         -- primary + alternative + sensitivity
+#   rq2_diagnostics(cfg)  -- determines selected model
+#   rq2_tables(cfg)       -- produces tables from selected model
 # ============================================================
 
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 
-rq2_stan <- function(cfg, robustness = FALSE) {
+rq2_stan <- function(cfg) {
   
-  # ---- BB robustness early exit ----
-  if (robustness) {
-    f_diag <- file.path(path_out, "rq2_diagnostics.csv")
-    if (!file.exists(f_diag)) {
-      msg("RQ2: diagnostics CSV not found -- skipping BB robustness")
-      return(invisible(TRUE))
-    }
-    diag <- fread(f_diag)
-    if (all(diag$adequate)) {
-      msg("RQ2: PPC adequate -- BB robustness not required")
-      return(invisible(TRUE))
-    }
-    msg("RQ2: PPC inadequate -- fitting BB robustness (per preregistration)")
-  }
+  # ============================================================
+  # MODEL SPECIFICATION
+  #   primary     : Gaussian on standardized stake deviations
+  #   alternative : one-inflated Beta-Binomial on raw stakes
+  #   sensitivity : alternative sd floors and MAD (confirmatory only)
+  # ============================================================
+  models <- list(
+    list(label     = "primary",
+         suffix    = "",
+         stan_file = here::here("stan", "rq2_primary.stan"),
+         desc      = "Gaussian"),
+    list(label     = "alternative",
+         suffix    = "_alt",
+         stan_file = here::here("stan", "rq2_alternative.stan"),
+         desc      = "Beta-Binomial")
+  )
+  # ============================================================
   
   seed   <- as.integer(cfg$run$seed)
   tr_vec <- unique(as.character(cfg$run$treatment))
@@ -81,11 +80,11 @@ rq2_stan <- function(cfg, robustness = FALSE) {
   stopifnot(length(min_bets) == 1L, min_bets >= 1L)
   stopifnot(length(sd_floor) == 1L, sd_floor > 0)
   
-  infile    <- file.path(path_src, "master_sequences.csv")
-  stan_file <- here::here("stan", if (robustness) "rq2_stakes_bb.stan" else "rq2_stakes.stan")
-  f_drift   <- file.path(path_mod, "drift_decisions.rds")
+  for (m in models) stopifnot(file.exists(m$stan_file))
   
-  stopifnot(file.exists(infile), file.exists(stan_file), file.exists(f_drift))
+  infile  <- file.path(path_src, "master_sequences.csv")
+  f_drift <- file.path(path_mod, "drift_decisions.rds")
+  stopifnot(file.exists(infile), file.exists(f_drift))
   
   drift_decisions <- readRDS(f_drift)
   
@@ -107,8 +106,6 @@ rq2_stan <- function(cfg, robustness = FALSE) {
   
   dt <- dt[!is.na(stake) & stake > 0]
   if (nrow(dt) == 0) stop("RQ2: No betting trials (stake > 0).")
-  
-  sm <- rstan::stan_model(stan_file)
   
   # ---- Get drift config ----
   get_drift_cfg <- function(tr, tag) {
@@ -171,9 +168,10 @@ rq2_stan <- function(cfg, robustness = FALSE) {
     d
   }
   
-  # ---- Fit one subset ----
-  fit_one <- function(d0, tr, tag, suffix = "", floor_val = sd_floor,
-                      dispersion = "sd") {
+  # ---- Fit one subset for one model ----
+  fit_one <- function(d0, tr, tag, m, floor_val = sd_floor, dispersion = "sd") {
+    
+    suffix <- m$suffix
     
     f_fit  <- file.path(path_mod, paste0("rq2_fit_sequences_", tr, "_", tag, suffix, ".rds"))
     f_pid  <- file.path(path_mod, paste0("rq2_pid_levels_",    tr, "_", tag, suffix, ".rds"))
@@ -182,9 +180,9 @@ rq2_stan <- function(cfg, robustness = FALSE) {
     f_excl <- file.path(path_out, paste0("rq2_excluded_minbets_", tr, "_", tag, suffix, ".csv"))
     
     skip_model <- should_skip(c(f_fit, f_pid, f_seq), cfg, "model",
-                              paste0("RQ2 Stan (", tr, "/", tag, suffix, ")"))
+                              paste0("RQ2 Stan (", tr, "/", tag, "/", m$label, ")"))
     skip_prep  <- should_skip(f_prep, cfg, "output",
-                              paste0("RQ2 prepared (", tr, "/", tag, suffix, ")"))
+                              paste0("RQ2 prepared (", tr, "/", tag, "/", m$label, ")"))
     
     if (skip_model && skip_prep) return(invisible(NULL))
     if (nrow(d0) == 0) return(invisible(NULL))
@@ -195,7 +193,7 @@ rq2_stan <- function(cfg, robustness = FALSE) {
     # Save excluded participants
     excl_pids <- setdiff(unique(d0$pid), unique(d$pid))
     if (!should_skip(f_excl, cfg, "output",
-                     paste0("RQ2 excluded (", tr, "/", tag, suffix, ")"))) {
+                     paste0("RQ2 excluded (", tr, "/", tag, "/", m$label, ")"))) {
       fwrite(data.table(pid = excl_pids), f_excl)
       msg("Saved: ", f_excl)
     }
@@ -225,7 +223,7 @@ rq2_stan <- function(cfg, robustness = FALSE) {
         0.3
       }
       
-      if (!robustness) {
+      if (m$label == "primary") {
         data_list <- list(
           N              = length(pid_levels),
           S              = length(seq_levels),
@@ -236,13 +234,12 @@ rq2_stan <- function(cfg, robustness = FALSE) {
           delta_bar      = as.vector(pid_const$delta_bar),
           s_star         = as.vector(pid_const$sd_star),
           e              = as.integer(e),
-          use_bb         = 0L,
           include_drift  = include_drift,
           block_c        = as.numeric(d$block_c),
           prior_gamma_sd = prior_gamma_sd
         )
       } else {
-        # BB model uses raw stakes and a_star instead of z
+        # BB alternative uses raw stakes and a_star
         a_star_pid <- d[, .(a_star_mean = mean(a_star)), by = pid]
         setkey(a_star_pid, pid)
         pid_const[, a_star_mean := a_star_pid[.(pid_levels), a_star_mean]]
@@ -262,8 +259,10 @@ rq2_stan <- function(cfg, robustness = FALSE) {
         )
       }
       
-      msg("RQ2 Stan: fitting tr=", tr, " tag=", tag, suffix,
-          if (robustness) " [BB]" else " [Gaussian]",
+      sm <- rstan::stan_model(m$stan_file)
+      
+      msg("RQ2 Stan: fitting tr=", tr, " tag=", tag,
+          " [", m$desc, "]",
           " | N=", data_list$N, " | S=", data_list$S, " | T=", data_list$T,
           " | drift=", drift_cfg$type,
           " | floor=", floor_val, " | dispersion=", dispersion)
@@ -287,10 +286,10 @@ rq2_stan <- function(cfg, robustness = FALSE) {
     invisible(list(fit = f_fit, pid = f_pid, seq = f_seq, prep = f_prep))
   }
   
-  # ---- Copy full to confirmatory ----
+  # ---- Copy full to confirmatory (all models) ----
   copy_full_to_confirmatory <- function(tr, suffix = "") {
     for (nm in c("rq2_fit_sequences", "rq2_pid_levels", "rq2_seq_levels", "rq2_prepared")) {
-      f_full <- file.path(path_mod, paste0(nm, "_", tr, "_full", suffix, ".rds"))
+      f_full <- file.path(path_mod, paste0(nm, "_", tr, "_full",         suffix, ".rds"))
       f_conf <- file.path(path_mod, paste0(nm, "_", tr, "_confirmatory", suffix, ".rds"))
       if (file.exists(f_full)) file.copy(f_full, f_conf, overwrite = TRUE)
     }
@@ -300,13 +299,11 @@ rq2_stan <- function(cfg, robustness = FALSE) {
   tau_main <- as.numeric(design$a_flags$tau[1])
   tau_nm   <- gsub("\\.", "", sprintf("%.2f", tau_main))
   
-  # ---- PASS 1: full sample ----
-  if (!robustness) {
-    for (tr in tr_vec) {
-      d_full <- dt[treat == tr]
-      if (nrow(d_full) == 0) next
-      fit_one(d_full, tr, "full")
-    }
+  # ---- PASS 1: full sample (primary + alternative) ----
+  for (tr in tr_vec) {
+    d_full <- dt[treat == tr]
+    if (nrow(d_full) == 0) next
+    for (m in models) fit_one(d_full, tr, "full", m)
   }
   
   # ---- PASS 2: confirmatory subset ----
@@ -327,30 +324,36 @@ rq2_stan <- function(cfg, robustness = FALSE) {
     d_conf <- dt[treat == tr & pid %in% keep_pid_raw]
     if (nrow(d_conf) == 0) next
     
-    suffix_primary <- if (robustness) "_bb" else ""
-    
     if (file.exists(f_pid_full)) {
       full_pid_prepped <- sort(as.character(readRDS(f_pid_full)))
       keep_pid_prepped <- sort(intersect(full_pid_prepped, keep_pid_raw))
       
       if (identical(full_pid_prepped, keep_pid_prepped)) {
-        copy_full_to_confirmatory(tr, suffix_primary)
+        for (m in models) copy_full_to_confirmatory(tr, m$suffix)
       } else {
-        fit_one(d_conf, tr, "confirmatory", suffix = suffix_primary)
+        for (m in models) fit_one(d_conf, tr, "confirmatory", m)
       }
     } else {
-      fit_one(d_conf, tr, "confirmatory", suffix = suffix_primary)
+      for (m in models) fit_one(d_conf, tr, "confirmatory", m)
     }
     
-    # ---- PASS 3: sensitivity (confirmatory only) ----
+    # ---- PASS 3: sensitivity (confirmatory only, primary model only) ----
+    m_primary <- models[[1]]
+    fit_one(d_conf, tr, "confirmatory", m_primary,
+            floor_val = sd_floor_sens_low,
+            dispersion = "sd")
     fit_one(d_conf, tr, "confirmatory",
-            suffix    = paste0("_floor", sd_floor_sens_low),
+            list(label = "primary", suffix = paste0("_floor", sd_floor_sens_low),
+                 stan_file = m_primary$stan_file, desc = "Gaussian"),
             floor_val = sd_floor_sens_low)
     fit_one(d_conf, tr, "confirmatory",
-            suffix    = paste0("_floor", sd_floor_sens_high),
+            list(label = "primary", suffix = paste0("_floor", sd_floor_sens_high),
+                 stan_file = m_primary$stan_file, desc = "Gaussian"),
             floor_val = sd_floor_sens_high)
     fit_one(d_conf, tr, "confirmatory",
-            suffix    = "_mad", dispersion = "mad")
+            list(label = "primary", suffix = "_mad",
+                 stan_file = m_primary$stan_file, desc = "Gaussian"),
+            dispersion = "mad")
   }
   
   invisible(TRUE)

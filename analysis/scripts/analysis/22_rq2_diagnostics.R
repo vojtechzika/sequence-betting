@@ -3,28 +3,28 @@
 #
 # PURPOSE
 #   Convergence diagnostics and posterior predictive check for
-#   RQ2 Gaussian likelihood. Uses Kolmogorov-Smirnov statistic
-#   to assess distributional fit of standardized stake deviations.
-#   Flags Beta-Binomial robustness if PPC is inadequate.
+#   RQ2. Uses KS statistic on standardized stake deviations.
+#   Compares primary (Gaussian) and alternative (BB) fits.
+#   Determines selected model per tr/tag for rq2_tables().
 #
 # ADEQUACY CRITERION:
-#   PPC p-value based on KS statistic comparing observed z to
-#   posterior predictive replications. Adequate if ppc_p in
-#   [p_lo, p_hi] from cfg$model$ppc$rq1_interval.
-#   Also reports pct_allin as a descriptive statistic.
+#   PPC p-value based on KS statistic. Adequate if ppc_p in
+#   [p_lo, p_hi]. Also reports convergence for both fits.
+#   selected_model: primary if adequate, alternative otherwise.
 #
 # INPUT
 #   path_mod/rq2_fit_sequences_<tr>_<tag>.rds
+#   path_mod/rq2_fit_sequences_<tr>_<tag>_alt.rds
 #   path_mod/rq2_prepared_<tr>_<tag>.rds
 #
 # OUTPUT
-#   path_out/rq2_diagnostics.csv      -- adequacy flag per tr/tag
-#   path_fig/rq2_ppc_<tr>_<tag>.png  -- PPC density plot
+#   path_out/rq2_diagnostics.csv
+#   path_fig/rq2_ppc_<tr>_<tag>.png
 #
 # CALL ORDER IN PIPELINE:
-#   rq2_stan(cfg)                    -- primary fits
-#   rq2_diagnostics(cfg)             -- adequacy check
-#   rq2_stan(cfg, robustness = TRUE) -- BB if needed, no-op otherwise
+#   rq2_stan(cfg)         -- primary + alternative fits
+#   rq2_diagnostics(cfg)  -- adequacy check + selected model
+#   rq2_tables(cfg)       -- tables from selected model
 # ============================================================
 
 rq2_diagnostics <- function(cfg) {
@@ -40,7 +40,6 @@ rq2_diagnostics <- function(cfg) {
   stopifnot(is.finite(p_lo), is.finite(p_hi), p_lo > 0, p_hi < 1, p_lo < p_hi)
   
   f_out <- file.path(path_out, "rq2_diagnostics.csv")
-  
   if (should_skip(f_out, cfg, "output", "RQ2 diagnostics")) return(invisible(NULL))
   
   all_rows <- list()
@@ -50,11 +49,13 @@ rq2_diagnostics <- function(cfg) {
       
       if (tag == "confirmatory" && !isTRUE(cfg$design$a_flags$betting_normative[[tr]])) next
       
-      f_fit  <- file.path(path_mod, paste0("rq2_fit_sequences_", tr, "_", tag, ".rds"))
-      f_prep <- file.path(path_mod, paste0("rq2_prepared_",      tr, "_", tag, ".rds"))
+      f_fit     <- file.path(path_mod, paste0("rq2_fit_sequences_", tr, "_", tag, ".rds"))
+      f_fit_alt <- file.path(path_mod, paste0("rq2_fit_sequences_", tr, "_", tag, "_alt.rds"))
+      f_prep    <- file.path(path_mod, paste0("rq2_prepared_",      tr, "_", tag, ".rds"))
       
       if (!file.exists(f_fit) || !file.exists(f_prep)) {
-        warning("RQ2 diagnostics: missing artifacts for tr='", tr, "', tag='", tag, "'. Skipping.")
+        warning("RQ2 diagnostics: missing primary artifacts for tr='", tr,
+                "', tag='", tag, "'. Skipping.")
         next
       }
       
@@ -62,7 +63,7 @@ rq2_diagnostics <- function(cfg) {
       prep <- readRDS(f_prep)
       stopifnot(is.data.frame(prep), "stake" %in% names(prep), "z" %in% names(prep))
       
-      # ---- Convergence diagnostics ----
+      # ---- Primary convergence ----
       summ           <- summary(fit)$summary
       rhat_max       <- max(summ[, "Rhat"], na.rm = TRUE)
       ess_min        <- min(summ[, "n_eff"], na.rm = TRUE)
@@ -72,17 +73,36 @@ rq2_diagnostics <- function(cfg) {
         sum(x[, "treedepth__"] >= cfg$model$stan$rq2$treedepth)
       }))
       
-      msg("RQ2 diagnostics (", tr, "/", tag, "):",
+      msg("RQ2 diagnostics primary (", tr, "/", tag, "):",
           " Rhat_max=", round(rhat_max, 4),
           " ESS_min=",  round(ess_min, 0),
           " divergences=", divergences,
           " treedepth_hits=", treedepth_hits)
       
+      # ---- Alternative convergence ----
+      rhat_max_alt  <- NA_real_
+      ess_min_alt   <- NA_real_
+      divergences_alt <- NA_integer_
+      alt_exists    <- file.exists(f_fit_alt)
+      
+      if (alt_exists) {
+        fit_alt        <- readRDS(f_fit_alt)
+        summ_alt       <- summary(fit_alt)$summary
+        rhat_max_alt   <- max(summ_alt[, "Rhat"], na.rm = TRUE)
+        ess_min_alt    <- min(summ_alt[, "n_eff"], na.rm = TRUE)
+        sp_alt         <- rstan::get_sampler_params(fit_alt, inc_warmup = FALSE)
+        divergences_alt <- sum(sapply(sp_alt, function(x) sum(x[, "divergent__"])))
+        
+        msg("RQ2 diagnostics alternative (", tr, "/", tag, "):",
+            " Rhat_max=", round(rhat_max_alt, 4),
+            " ESS_min=",  round(ess_min_alt, 0),
+            " divergences=", divergences_alt)
+      }
+      
       # ---- Descriptive: all-in proportion ----
       pct_allin <- mean(prep$stake >= e, na.rm = TRUE)
       
-      # ---- PPC: KS statistic ----
-      # Observed KS statistic vs standard normal
+      # ---- PPC: KS statistic on primary fit ----
       post        <- rstan::extract(fit)
       alpha_draws <- as.numeric(post$alpha)
       sigma_draws <- as.numeric(post$sigma)
@@ -99,19 +119,22 @@ rq2_diagnostics <- function(cfg) {
         ks.test(z_obs, z_rep)$statistic
       })
       
-      ppc_p    <- mean(D_rep >= D_obs)
-      adequate <- (ppc_p >= p_lo && ppc_p <= p_hi)
+      ppc_p          <- mean(D_rep >= D_obs)
+      adequate       <- (ppc_p >= p_lo && ppc_p <= p_hi)
+      selected_model <- if (adequate) "primary" else "alternative"
       
-      if (!adequate) {
-        warning("RQ2 PPC (", tr, "/", tag, "): INADEQUATE -- BB robustness will be fitted",
-                " | ppc_p=", round(ppc_p, 4),
-                " | KS_obs=", round(D_obs, 4),
-                " | pct_allin=", round(pct_allin, 4))
-      } else {
+      if (adequate) {
         msg("RQ2 PPC (", tr, "/", tag, "): adequate",
             " | ppc_p=", round(ppc_p, 4),
             " | KS_obs=", round(D_obs, 4),
-            " | pct_allin=", round(pct_allin, 4))
+            " | pct_allin=", round(pct_allin, 4),
+            " | selected=primary")
+      } else {
+        msg("RQ2 PPC (", tr, "/", tag, "): INADEQUATE",
+            " | ppc_p=", round(ppc_p, 4),
+            " | KS_obs=", round(D_obs, 4),
+            " | pct_allin=", round(pct_allin, 4),
+            " | selected=alternative")
       }
       
       # ---- PPC density plot ----
@@ -135,9 +158,8 @@ rq2_diagnostics <- function(cfg) {
           scale_colour_manual(values = c(observed = "black", replicated = "#C0392B"),
                               name = NULL) +
           annotate("text", x = Inf, y = Inf,
-                   label = sprintf("KS p = %.3f\nAll-in: %.1f%%\nAdequate: %s",
-                                   ppc_p, 100 * pct_allin,
-                                   if (adequate) "Yes" else "No"),
+                   label = sprintf("KS p = %.3f\nAll-in: %.1f%%\nSelected: %s",
+                                   ppc_p, 100 * pct_allin, selected_model),
                    hjust = 1.1, vjust = 1.5, size = 3, colour = "grey30") +
           labs(title = paste0("RQ2 PPC (", tr, "/", tag, ")"),
                x = "z (standardized stake deviation)", y = "Density") +
@@ -149,25 +171,30 @@ rq2_diagnostics <- function(cfg) {
       }
       
       all_rows[[paste(tr, tag, sep = "_")]] <- data.table(
-        treatment      = tr,
-        tag            = tag,
-        rhat_max       = round(rhat_max, 4),
-        ess_min        = round(ess_min, 0),
-        divergences    = divergences,
-        treedepth_hits = treedepth_hits,
-        pct_allin      = round(pct_allin, 4),
-        KS_obs         = round(D_obs, 4),
-        KS_rep_median  = round(median(D_rep), 4),
-        ppc_p          = round(ppc_p, 4),
-        adequate       = adequate,
-        p_lo           = p_lo,
-        p_hi           = p_hi
+        treatment       = tr,
+        tag             = tag,
+        rhat_max        = round(rhat_max, 4),
+        ess_min         = round(ess_min, 0),
+        divergences     = divergences,
+        treedepth_hits  = treedepth_hits,
+        pct_allin       = round(pct_allin, 4),
+        KS_obs          = round(D_obs, 4),
+        KS_rep_median   = round(median(D_rep), 4),
+        ppc_p           = round(ppc_p, 4),
+        adequate        = adequate,
+        selected_model  = selected_model,
+        alt_exists      = alt_exists,
+        rhat_max_alt    = round(rhat_max_alt, 4),
+        ess_min_alt     = round(ess_min_alt, 0),
+        divergences_alt = divergences_alt,
+        p_lo            = p_lo,
+        p_hi            = p_hi
       )
     }
   }
   
   if (length(all_rows) > 0) {
-    fwrite(rbindlist(all_rows), f_out)
+    fwrite(rbindlist(all_rows, fill = TRUE), f_out)
     msg("Saved: ", f_out)
   }
   

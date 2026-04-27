@@ -39,7 +39,7 @@ options(width = 120)
 # ============================================================
 pkgs <- c(
   # Core data manipulation
-  "data.table", "dplyr", "tidyr", "stringr", "lubridate",
+  "data.table", "dplyr", "tidyr", "stringr", "lubridate", "psych",
   # Project structure
   "here",
   # Bayesian modelling

@@ -2,35 +2,37 @@
 # 23_rq2_tables.R
 #
 # PURPOSE
-#   Produces sequence-level and participant-level tables for RQ2
-#   (intensive margin of betting). Includes sensitivity comparison
-#   table for confirmatory subset.
+#   Produces sequence-level, participant-level, and model summary
+#   tables for RQ2 (intensive margin of betting).
+#   Reads rq2_diagnostics.csv to determine selected model.
+#   Selected model tables -> path_out/
+#   Other model tables    -> path_out/alternatives/
+#   Sensitivity summary for confirmatory subset always produced.
 #
 # INPUT
-#   path_mod/rq2_fit_sequences_<tr>_<tag>[_bb|_floor*|_mad].rds
-#   path_mod/rq2_pid_levels_<tr>_<tag>[_bb|_floor*|_mad].rds
-#   path_mod/rq2_seq_levels_<tr>_<tag>[_bb|_floor*|_mad].rds
-#   path_mod/rq2_prepared_<tr>_<tag>[_bb|_floor*|_mad].rds
+#   path_src/master_sequences.csv
+#   path_out/rq2_diagnostics.csv
+#   path_mod/rq2_fit_sequences_<tr>_<tag>[_alt|_floor*|_mad].rds
+#   path_mod/rq2_prepared_<tr>_<tag>[_alt|_floor*|_mad].rds
 #
 # OUTPUT
-#   path_out/rq2_<tr>_<tag>[_bb]_sequences.csv
-#   path_out/rq2_<tr>_<tag>[_bb]_participants.csv
-#   path_out/rq2_<tr>_<tag>[_bb]_model_summary.csv
+#   path_out/rq2_<tr>_<tag>_sequences.csv
+#   path_out/rq2_<tr>_<tag>_sequences_summary.csv
+#   path_out/rq2_<tr>_<tag>_participants.csv
+#   path_out/rq2_<tr>_<tag>_participants_summary.csv
+#   path_out/rq2_<tr>_<tag>_model_summary.csv
+#   path_out/alternatives/alt_rq2_<tr>_<tag>_*.csv
 #   path_out/rq2_<tr>_confirmatory_sensitivity_summary.csv
 #
 # TAGS
 #   full          -- all participants
 #   confirmatory  -- normative betters only
-#
-# ROBUSTNESS
-#   Called with robustness = TRUE to produce _bb outputs.
 # ============================================================
 
-rq2_tables <- function(cfg, robustness = FALSE) {
+rq2_tables <- function(cfg) {
   
   tr_vec   <- unique(as.character(cfg$run$treatment))
   design   <- cfg$design
-  suffix   <- if (robustness) "_bb" else ""
   
   e <- as.numeric(design$seq$endowment)
   stopifnot(length(e) == 1L, is.finite(e), e > 0)
@@ -41,6 +43,21 @@ rq2_tables <- function(cfg, robustness = FALSE) {
   
   sd_floor_sens_low  <- as.numeric(design$rq2$sd_floor_sens_low)
   sd_floor_sens_high <- as.numeric(design$rq2$sd_floor_sens_high)
+  
+  # ---- Read diagnostics to determine selected model ----
+  f_diag <- file.path(path_out, "rq2_diagnostics.csv")
+  diag   <- if (file.exists(f_diag)) fread(f_diag) else NULL
+  
+  get_selected_suffix <- function(tr, tg) {
+    if (is.null(diag)) return("")
+    row <- diag[treatment == tr & tag == tg]
+    if (nrow(row) == 0L) return("")
+    if (row$selected_model == "alternative") "_alt" else ""
+  }
+  
+  # ---- Output dirs ----
+  path_out_alt <- file.path(path_out, "alternatives")
+  dir.create(path_out_alt, showWarnings = FALSE, recursive = TRUE)
   
   tags    <- c("full", "confirmatory")
   outputs <- list()
@@ -182,6 +199,186 @@ rq2_tables <- function(cfg, robustness = FALSE) {
     pid_map
   }
   
+  # ---- Helper: produce tables for one fit ----
+  produce_tables <- function(tr, tag, suffix, outdir, is_alt = FALSE) {
+    
+    arts <- load_fit(tr, tag, suffix)
+    if (is.null(arts)) return(invisible(NULL))
+    
+    pid_levels <- arts$pids
+    seq_levels <- arts$seqs
+    prep       <- arts$prep
+    
+    pid_map       <- get_pid_constants(prep, pid_levels)
+    delta_bar_vec <- as.numeric(pid_map$delta_bar)
+    sd_star_vec   <- as.numeric(pid_map$sd_star)
+    n_bets_vec    <- as.integer(pid_map$n_bets)
+    
+    n_trials_by_seq <- prep[pid %in% pid_levels, .(n_trials = .N), by = seq]
+    setkey(n_trials_by_seq, seq)
+    
+    draws <- extract_draws(arts$fit, pid_levels, seq_levels,
+                           delta_bar_vec, sd_star_vec)
+    
+    file_prefix <- if (is_alt) "alt_" else ""
+    file_stem   <- paste0(file_prefix, "rq2_", tr, "_", tag)
+    
+    sum_draw <- function(x, nm) {
+      data.table(parameter = nm, median = median(x), mean = mean(x),
+                 q025 = quantile(x, 0.025), q975 = quantile(x, 0.975))
+    }
+    
+    # ---- Sequence table ----
+    f_seq_csv <- file.path(outdir, paste0(file_stem, "_sequences.csv"))
+    if (!should_skip(f_seq_csv, cfg, "output",
+                     paste0("RQ2 sequences (", tr, "/", tag,
+                            if (is_alt) "/alt" else "", ")"))) {
+      seq_tbl <- build_seq_tbl(draws$mu_s, seq_levels, n_trials_by_seq)
+      fwrite(seq_tbl, f_seq_csv)
+      msg("Saved: ", f_seq_csv)
+    } else {
+      seq_tbl <- fread(f_seq_csv)
+    }
+    
+    # Sequence summary
+    f_seq_sum <- file.path(outdir, paste0(file_stem, "_sequences_summary.csv"))
+    if (!should_skip(f_seq_sum, cfg, "output",
+                     paste0("RQ2 sequences summary (", tr, "/", tag,
+                            if (is_alt) "/alt" else "", ")"))) {
+      
+      seq_summary <- seq_tbl[, .N, by = calib_label]
+      seq_summary[, calib_label := factor(calib_label,
+                                          levels = c("under_strong", "under_moderate", "under_weak",
+                                                     "neutral",
+                                                     "over_weak", "over_moderate", "over_strong"))]
+      setorder(seq_summary, calib_label)
+      seq_summary[, pct := round(100 * N / nrow(seq_tbl), 1)]
+      
+      seq_stats <- seq_tbl[, .(
+        mu_mean   = round(mean(mu_a_mean),   3),
+        mu_median = round(median(mu_a_mean), 3),
+        mu_min    = round(min(mu_a_mean),    3),
+        mu_max    = round(max(mu_a_mean),    3)
+      ), by = calib_label]
+      
+      seq_ids <- seq_tbl[, .(
+        sequences = paste(sort(sequence), collapse = ", ")
+      ), by = calib_label]
+      
+      seq_summary <- merge(seq_summary, seq_stats, by = "calib_label")
+      seq_summary <- merge(seq_summary, seq_ids,   by = "calib_label")
+      fwrite(seq_summary, f_seq_sum)
+      msg("Saved: ", f_seq_sum)
+    }
+    
+    # ---- Participant table ----
+    f_pid_csv <- file.path(outdir, paste0(file_stem, "_participants.csv"))
+    if (!should_skip(f_pid_csv, cfg, "output",
+                     paste0("RQ2 participants (", tr, "/", tag,
+                            if (is_alt) "/alt" else "", ")"))) {
+      part_tbl <- build_pid_tbl(draws$mu_i, pid_levels, n_bets_vec)
+      fwrite(part_tbl, f_pid_csv)
+      msg("Saved: ", f_pid_csv)
+    } else {
+      part_tbl <- fread(f_pid_csv)
+    }
+    
+    # Participant summary
+    f_pid_sum <- file.path(outdir, paste0(file_stem, "_participants_summary.csv"))
+    if (!should_skip(f_pid_sum, cfg, "output",
+                     paste0("RQ2 participants summary (", tr, "/", tag,
+                            if (is_alt) "/alt" else "", ")"))) {
+      
+      pid_summary <- part_tbl[, .N, by = calib_label]
+      pid_summary[, calib_label := factor(calib_label,
+                                          levels = c("under_solid", "under_likely", "under_leaning",
+                                                     "neutral",
+                                                     "over_leaning", "over_likely", "over_solid"))]
+      setorder(pid_summary, calib_label)
+      pid_summary[, pct := round(100 * N / nrow(part_tbl), 1)]
+      
+      pid_stats <- part_tbl[, .(
+        mu_mean   = round(mean(mu_a_mean),   3),
+        mu_median = round(median(mu_a_mean), 3),
+        mu_min    = round(min(mu_a_mean),    3),
+        mu_max    = round(max(mu_a_mean),    3)
+      ), by = calib_label]
+      
+      pid_ids <- part_tbl[, .(
+        pids = paste(sort(pid), collapse = ", ")
+      ), by = calib_label]
+      
+      pid_summary <- merge(pid_summary, pid_stats, by = "calib_label")
+      pid_summary <- merge(pid_summary, pid_ids,   by = "calib_label")
+      fwrite(pid_summary, f_pid_sum)
+      msg("Saved: ", f_pid_sum)
+    }
+    
+    # ---- Model summary ----
+    # ---- Model summary ----
+    f_mod_csv <- file.path(outdir, paste0(file_stem, "_model_summary.csv"))
+    if (!should_skip(f_mod_csv, cfg, "output",
+                     paste0("RQ2 model summary (", tr, "/", tag,
+                            if (is_alt) "/alt" else "", ")"))) {
+      
+      post <- rstan::extract(arts$fit)
+      
+      safe_draw <- function(x, nm) {
+        if (is.null(x)) return(NULL)
+        data.table(parameter = nm, median = median(x), mean = mean(x),
+                   q025 = quantile(x, 0.025), q975 = quantile(x, 0.975))
+      }
+      
+      if (!is_alt) {
+        rows <- list(
+          safe_draw(post$alpha,       "alpha (grand mean z-deviation)"),
+          safe_draw(post$sigma_u,     "sigma_u (between-participant SD)"),
+          safe_draw(post$sigma_s,     "sigma_s (between-sequence SD)"),
+          safe_draw(post$sigma,       "sigma (residual SD)"),
+          safe_draw(post$gamma_drift, "gamma_drift (linear drift per block)")
+        )
+      } else {
+        rows <- list(
+          safe_draw(post$alpha,       "alpha (grand mean)"),
+          safe_draw(post$sigma_u,     "sigma_u (between-participant SD)"),
+          safe_draw(post$sigma_s,     "sigma_s (between-sequence SD)"),
+          safe_draw(post$phi,         "phi (BB overdispersion)"),
+          safe_draw(post$alpha_omega, "alpha_omega (all-in intercept)"),
+          safe_draw(post$sigma_v,     "sigma_v (all-in between-participant SD)"),
+          safe_draw(post$gamma_drift, "gamma_drift (linear drift per block)")
+        )
+      }
+      
+      mod_tbl <- rbindlist(Filter(Negate(is.null), rows), fill = TRUE)
+      mod_tbl[, treatment  := tr]
+      mod_tbl[, tag        := tag]
+      mod_tbl[, likelihood := if (is_alt) "beta_binomial" else "gaussian"]
+      
+      grand_mu_a <- data.table(
+        parameter  = "grand mean mu_a (absolute scale, proportion of endowment)",
+        median     = median(apply(draws$mu_s, 1, mean)),
+        mean       = mean(apply(draws$mu_s, 1, mean)),
+        q025       = quantile(apply(draws$mu_s, 1, mean), 0.025),
+        q975       = quantile(apply(draws$mu_s, 1, mean), 0.975),
+        treatment  = tr,
+        tag        = tag,
+        likelihood = if (is_alt) "beta_binomial" else "gaussian"
+      )
+      
+      mod_tbl <- rbindlist(list(mod_tbl, grand_mu_a), fill = TRUE)
+      fwrite(mod_tbl, f_mod_csv)
+      msg("Saved: ", f_mod_csv)
+    }
+    
+    list(draws                    = draws,
+         seq_tbl                  = seq_tbl,
+         sequences_csv            = f_seq_csv,
+         sequences_summary_csv    = f_seq_sum,
+         participants_csv         = f_pid_csv,
+         participants_summary_csv = f_pid_sum,
+         model_summary_csv        = f_mod_csv)
+  }
+  
   # ============================================================
   # Main loop
   # ============================================================
@@ -190,90 +387,26 @@ rq2_tables <- function(cfg, robustness = FALSE) {
       
       if (tag == "confirmatory" && !isTRUE(design$a_flags$betting_normative[[tr]])) next
       
-      arts <- load_fit(tr, tag, suffix)
-      if (is.null(arts)) next
+      selected_suffix <- get_selected_suffix(tr, tag)
+      other_suffix    <- if (selected_suffix == "") "_alt" else ""
       
-      pid_levels <- arts$pids
-      seq_levels <- arts$seqs
-      prep       <- arts$prep
+      # Selected model -> path_out
+      res <- produce_tables(tr, tag,
+                            suffix = selected_suffix,
+                            outdir = path_out,
+                            is_alt = (selected_suffix == "_alt"))
       
-      pid_map       <- get_pid_constants(prep, pid_levels)
-      delta_bar_vec <- as.numeric(pid_map$delta_bar)
-      sd_star_vec   <- as.numeric(pid_map$sd_star)
-      n_bets_vec    <- as.integer(pid_map$n_bets)
+      # Other model -> path_out/alternatives
+      produce_tables(tr, tag,
+                     suffix = other_suffix,
+                     outdir = path_out_alt,
+                     is_alt = (other_suffix == "_alt"))
       
-      n_trials_by_seq <- prep[pid %in% pid_levels, .(n_trials = .N), by = seq]
-      setkey(n_trials_by_seq, seq)
-      
-      draws <- extract_draws(arts$fit, pid_levels, seq_levels,
-                             delta_bar_vec, sd_star_vec)
-      
-      file_stem <- paste0("rq2_", tr, "_", tag, suffix)
-      
-      # ---- Sequence table ----
-      f_seq_csv <- file.path(path_out, paste0(file_stem, "_sequences.csv"))
-      if (!should_skip(f_seq_csv, cfg, "output",
-                       paste0("RQ2 sequences (", tr, "/", tag,
-                              if (robustness) "/bb" else "", ")"))) {
-        seq_tbl <- build_seq_tbl(draws$mu_s, seq_levels, n_trials_by_seq)
-        fwrite(seq_tbl, f_seq_csv)
-        msg("Saved: ", f_seq_csv)
-      } else {
-        seq_tbl <- fread(f_seq_csv)
-      }
-      
-      # ---- Participant table ----
-      f_pid_csv <- file.path(path_out, paste0(file_stem, "_participants.csv"))
-      if (!should_skip(f_pid_csv, cfg, "output",
-                       paste0("RQ2 participants (", tr, "/", tag,
-                              if (robustness) "/bb" else "", ")"))) {
-        part_tbl <- build_pid_tbl(draws$mu_i, pid_levels, n_bets_vec)
-        fwrite(part_tbl, f_pid_csv)
-        msg("Saved: ", f_pid_csv)
-      }
-      
-      # ---- Model summary ----
-      f_mod_csv <- file.path(path_out, paste0(file_stem, "_model_summary.csv"))
-      if (!should_skip(f_mod_csv, cfg, "output",
-                       paste0("RQ2 model summary (", tr, "/", tag,
-                              if (robustness) "/bb" else "", ")"))) {
+      # Sensitivity summary (confirmatory only, from selected model)
+      if (tag == "confirmatory" && !is.null(res)) {
         
-        sum_draw <- function(x, nm) {
-          data.table(parameter = nm, median = median(x), mean = mean(x),
-                     q025 = quantile(x, 0.025), q975 = quantile(x, 0.975))
-        }
-        
-        post <- rstan::extract(arts$fit)
-        mod_tbl <- rbindlist(list(
-          sum_draw(post$alpha,       "alpha (grand mean z-deviation)"),
-          sum_draw(post$sigma_u,     "sigma_u (between-participant SD)"),
-          sum_draw(post$sigma_s,     "sigma_s (between-sequence SD)"),
-          sum_draw(post$sigma,       "sigma (residual SD)"),
-          sum_draw(post$gamma_drift, "gamma_drift (linear drift per block)")
-        ))
-        mod_tbl[, treatment := tr]
-        mod_tbl[, tag       := tag]
-        if (robustness) mod_tbl[, likelihood := "beta_binomial"]
-        
-        grand_mu_a <- data.table(
-          parameter = "grand mean mu_a (absolute scale, proportion of endowment)",
-          median    = median(apply(draws$mu_s, 1, mean)),
-          mean      = mean(apply(draws$mu_s, 1, mean)),
-          q025      = quantile(apply(draws$mu_s, 1, mean), 0.025),
-          q975      = quantile(apply(draws$mu_s, 1, mean), 0.975),
-          treatment = tr,
-          tag       = tag
-        )
-        
-        mod_tbl <- rbindlist(list(mod_tbl, grand_mu_a), fill = TRUE)
-        fwrite(mod_tbl, f_mod_csv)
-        msg("Saved: ", f_mod_csv)
-      }
-      
-      # ---- Sensitivity summary (confirmatory only, primary run only) ----
-      if (tag == "confirmatory" && !robustness) {
-        
-        f_sens <- file.path(path_out, paste0("rq2_", tr, "_confirmatory_sensitivity_summary.csv"))
+        f_sens <- file.path(path_out,
+                            paste0("rq2_", tr, "_confirmatory_sensitivity_summary.csv"))
         if (!should_skip(f_sens, cfg, "output",
                          paste0("RQ2 sensitivity summary (", tr, ")"))) {
           
@@ -284,8 +417,8 @@ rq2_tables <- function(cfg, robustness = FALSE) {
             list(suffix = "_mad",                                label = "mad")
           )
           
-          mu_s_primary <- apply(draws$mu_s, 2, mean)
-          mu_i_primary <- apply(draws$mu_i, 2, mean)
+          mu_s_primary <- apply(res$draws$mu_s, 2, mean)
+          mu_i_primary <- apply(res$draws$mu_i, 2, mean)
           sens_rows    <- list()
           
           for (sv in sens_variants) {
@@ -307,7 +440,7 @@ rq2_tables <- function(cfg, robustness = FALSE) {
             setkey(n_trials_sv, seq)
             seq_tbl_sv <- build_seq_tbl(draws_sv$mu_s, arts_sv$seqs, n_trials_sv)
             
-            pct_stable <- mean(seq_tbl$calib_label == seq_tbl_sv$calib_label,
+            pct_stable <- mean(res$seq_tbl$calib_label == seq_tbl_sv$calib_label,
                                na.rm = TRUE)
             
             sens_rows[[sv$label]] <- data.table(
@@ -326,11 +459,15 @@ rq2_tables <- function(cfg, robustness = FALSE) {
         }
       }
       
-      outputs[[paste(tr, tag, sep = "_")]] <- list(
-        sequences_csv     = f_seq_csv,
-        participants_csv  = f_pid_csv,
-        model_summary_csv = f_mod_csv
-      )
+      if (!is.null(res)) {
+        outputs[[paste(tr, tag, sep = "_")]] <- list(
+          sequences_csv            = res$sequences_csv,
+          sequences_summary_csv    = res$sequences_summary_csv,
+          participants_csv         = res$participants_csv,
+          participants_summary_csv = res$participants_summary_csv,
+          model_summary_csv        = res$model_summary_csv
+        )
+      }
     }
   }
   

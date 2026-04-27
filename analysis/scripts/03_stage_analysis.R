@@ -53,9 +53,8 @@ run_analysis <- function(cfg) {
   # ----------------------------
   # 10 Space: RQ1
   # ----------------------------
-  rq1_stan(cfg)                      # primary Bernoulli fits
-  rq1_diagnostics(cfg)               # PPC check
-  rq1_stan(cfg, robustness = TRUE)   # BB robustness if PPC inadequate, no-op otherwise
+  rq1_stan(cfg)                      
+  rq1_diagnostics(cfg)              
   rq1_tables(cfg)
   rq1_figures(cfg)
   
@@ -64,7 +63,6 @@ run_analysis <- function(cfg) {
   # ----------------------------
    rq2_stan(cfg)
    rq2_diagnostics(cfg)
-   rq2_stan(cfg, robustness = TRUE)   # BB robustness if PPC inadequate, no-op otherwise
    rq2_tables(cfg)
    rq2_figures(cfg)
    
@@ -72,7 +70,7 @@ run_analysis <- function(cfg) {
    # 30 Space: RQ3 
    # ----------------------------
    rq3_stan(cfg)
-   # rq3_diagnostics(cfg)
+   rq3_diagnostics(cfg)
    rq3_tables(cfg)
    
    # ----------------------------
