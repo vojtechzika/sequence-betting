@@ -196,7 +196,7 @@ rq1_stan <- function(cfg) {
     
     if (!isTRUE(design$a_flags$betting_normative[[tr]])) next
     
-    f_rds_flags <- file.path(path_mod, paste0("a_star_pid_flags_", tr, ".rds"))
+    f_rds_flags <- file.path(path_mod, paste0("a_star_pid_flags_", tr, ".rds")) 
     stopifnot(file.exists(f_rds_flags))
     
     flags   <- readRDS(f_rds_flags)

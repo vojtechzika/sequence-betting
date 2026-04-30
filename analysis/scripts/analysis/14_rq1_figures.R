@@ -93,11 +93,21 @@ rq1_figures <- function(cfg, robustness = FALSE) {
         
         dt <- copy(seq_tbl)
         dt[, sequence    := factor(sequence, levels = dt[order(mu_b_mean), sequence])]
-        dt[, grand_label := factor(grand_label, levels = c("above", "neutral", "below"))]
         
-        label_colors <- c(above = "#2166AC", neutral = "#AAAAAA", below = "#C0392B")
-        label_names  <- c(above = "Above grand mean", neutral = "Neutral",
-                          below = "Below grand mean")
+        dt[, grand_label := factor(grand_label,
+                                   levels = c("above", "likely_above", "neutral",
+                                              "likely_below", "below"))]
+        
+        label_colors <- c(above        = "#C0392B",
+                          likely_above = "#E8A090",
+                          neutral      = "#AAAAAA",
+                          likely_below = "#90B8D8",
+                          below        = "#2166AC")
+        label_names  <- c(above        = "Above grand mean",
+                          likely_above = "Likely above grand mean",
+                          neutral      = "Neutral",
+                          likely_below = "Likely below grand mean",
+                          below        = "Below grand mean")
         
         p <- ggplot(dt, aes(y = sequence)) +
           

@@ -135,9 +135,13 @@ rq1_tables <- function(cfg) {
                                        function(x) mean(x > grand_draws))]
       seq_tbl[, p_below_grand := apply(mu_b_draws, 2,
                                        function(x) mean(x < grand_draws))]
+      
       seq_tbl[, grand_label := fifelse(
-        mu_b_q025 > grand_mean_val, "above",
-        fifelse(mu_b_q975 < grand_mean_val, "below", "neutral")
+        p_above_grand >= 0.95, "above",
+        fifelse(p_above_grand >= 0.80, "likely_above",
+                fifelse(p_below_grand >= 0.95, "below",
+                        fifelse(p_below_grand >= 0.80, "likely_below",
+                                "neutral")))
       )]
       
       setorder(seq_tbl, sequence)
@@ -173,7 +177,7 @@ rq1_tables <- function(cfg) {
         
         seq_grand <- seq_tbl[, .N, by = grand_label]
         seq_grand[, grand_label := factor(grand_label,
-                                          levels = c("above", "neutral", "below"))]
+                                          levels = c("above", "likely_above", "neutral", "likely_below", "below"))]
         setorder(seq_grand, grand_label)
         seq_grand[, pct := round(100 * N / nrow(seq_tbl), 1)]
         
@@ -280,6 +284,9 @@ rq1_tables <- function(cfg) {
       mod_tbl[, treatment  := tr]
       mod_tbl[, tag        := tag]
       mod_tbl[, likelihood := if (is_alt) "beta_binomial" else "bernoulli"]
+      mod_tbl[, n_trials     := nrow(d)]
+      mod_tbl[, n_participants := length(pid_levels)]
+      mod_tbl[, n_sequences  := length(seq_levels)]
       
       fwrite(mod_tbl, f_mod_csv)
       msg("Saved: ", f_mod_csv)

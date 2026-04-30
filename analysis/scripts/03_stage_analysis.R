@@ -8,6 +8,8 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "01_descriptive_participants.R"))
   source(here::here("scripts", "analysis", "02_descriptive_sequences.R"))
   source(here::here("scripts", "analysis", "03_r_raincloud.R"))
+  source(here::here("scripts", "analysis", "04_raw_stakes_participants.R"))
+  source(here::here("scripts", "analysis", "05_raw_stakes_sequences.R"))
   
   source(here::here("scripts", "analysis", "11_rq1_stan.R"))
   source(here::here("scripts", "analysis", "12_rq1_diagnostics.R"))
@@ -22,6 +24,7 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "31_rq3_stan.R"))
   source(here::here("scripts", "analysis", "32_rq3_diagnostics.R"))
   source(here::here("scripts", "analysis", "33_rq3_tables.R"))
+  source(here::here("scripts", "analysis", "34_rq3_figures.R"))
  
   source(here::here("scripts", "analysis", "41_rq4_stan.R"))
   source(here::here("scripts", "analysis", "42_rq4_diagnostics.R"))
@@ -40,8 +43,11 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "71_ex3_contrasts.R"))
   source(here::here("scripts", "analysis", "72_ex3_rq2_implied_p.R"))
   source(here::here("scripts", "analysis", "73_ex3_implied_r.R"))
+  source(here::here("scripts", "analysis", "74_ex3_figures.R"))
 
   source(here::here("scripts", "analysis", "81_ex4_similarity.R"))
+  
+  source(here::here("scripts", "analysis", "91_rq1-3_forest.R"))
   
   # ----------------------------
   # 00 Space: Descriptives
@@ -49,6 +55,8 @@ run_analysis <- function(cfg) {
   descriptive_participants(cfg)
   descriptive_sequences(cfg)
   r_raincloud(cfg)
+  raw_stakes_participants(cfg)
+  raw_stakes_seqeunces(cfg)
   
   # ----------------------------
   # 10 Space: RQ1
@@ -72,6 +80,7 @@ run_analysis <- function(cfg) {
    rq3_stan(cfg)
    rq3_diagnostics(cfg)
    rq3_tables(cfg)
+   rq3_figures(cfg)
    
    # ----------------------------
    # 40 Space: RQ4
@@ -103,10 +112,18 @@ run_analysis <- function(cfg) {
    ex3_rq2_implied_p(cfg)
    ex3_implied_r(cfg)
    
+   ex3_figures(cfg)
+   
    # ----------------------------
    # 80 Space: EX4
    # ----------------------------
    ex4_similarity(cfg)
+   
+   
+   # ----------------------------
+   # 90 Space: Misc
+   # ----------------------------
+   rq1_3_forest(cfg)
 
   
   msg("\nANALYSIS completed for data_folder:", cfg$run$data_folder, "\n")

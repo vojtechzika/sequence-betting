@@ -235,15 +235,27 @@ rq3_stan <- function(cfg) {
       if (should_skip(c(f_fit, f_pid, f_seq), cfg, "model",
                       paste0("RQ3 Stan (", tr, "/", tag, "/", m$label, ")"))) next
       
+      # For Gamma-only model, exclude zero welfare loss trials
+      # (Gamma requires strictly positive values; zeros indicate EU-optimal choices)
+      keep    <- y > 0
+      d_fit   <- if (m$label == "gamma_only") d[keep] else d
+      y_fit   <- if (m$label == "gamma_only") y[keep] else y
+      
+      if (nrow(d_fit) == 0) {
+        msg("RQ3 Stan: skipping ", m$label, " for tr=", tr, " tag=", tag,
+            " -- no positive welfare loss trials")
+        next
+      }
+      
       data_list <- list(
         N              = length(pid_levels),
         S              = length(seq_levels),
-        T              = nrow(d),
-        pid            = as.integer(d$pid_i),
-        sid            = as.integer(d$sid_s),
-        y              = as.vector(pmax(y, 0)),
+        T              = nrow(d_fit),
+        pid            = as.integer(d_fit$pid_i),
+        sid            = as.integer(d_fit$sid_s),
+        y              = as.vector(pmax(y_fit, 0)),
         include_drift  = include_drift,
-        block_c        = as.numeric(d$block_c),
+        block_c        = as.numeric(d_fit$block_c),
         prior_gamma_sd = prior_gamma_sd
       )
       

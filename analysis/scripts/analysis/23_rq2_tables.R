@@ -234,6 +234,23 @@ rq2_tables <- function(cfg) {
                      paste0("RQ2 sequences (", tr, "/", tag,
                             if (is_alt) "/alt" else "", ")"))) {
       seq_tbl <- build_seq_tbl(draws$mu_s, seq_levels, n_trials_by_seq)
+      
+      
+      # Grand mean classification
+      grand_draws <- apply(draws$mu_s, 1, mean)
+      seq_tbl[, p_above_grand := apply(draws$mu_s, 2,
+                                       function(x) mean(x > grand_draws))]
+      seq_tbl[, p_below_grand := apply(draws$mu_s, 2,
+                                       function(x) mean(x < grand_draws))]
+      seq_tbl[, grand_label := fifelse(
+        p_above_grand >= 0.95, "above",
+        fifelse(p_above_grand >= 0.80, "likely_above",
+                fifelse(p_below_grand >= 0.95, "below",
+                        fifelse(p_below_grand >= 0.80, "likely_below",
+                                "neutral")))
+      )]
+      
+      
       fwrite(seq_tbl, f_seq_csv)
       msg("Saved: ", f_seq_csv)
     } else {
@@ -353,6 +370,9 @@ rq2_tables <- function(cfg) {
       mod_tbl[, treatment  := tr]
       mod_tbl[, tag        := tag]
       mod_tbl[, likelihood := if (is_alt) "beta_binomial" else "gaussian"]
+      mod_tbl[, n_trials       := nrow(prep[pid %in% pid_levels])]
+      mod_tbl[, n_participants := length(pid_levels)]
+      mod_tbl[, n_sequences    := length(seq_levels)]
       
       grand_mu_a <- data.table(
         parameter  = "grand mean mu_a (absolute scale, proportion of endowment)",

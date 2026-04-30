@@ -86,7 +86,7 @@ rq3_tables <- function(cfg) {
     f_seq <- file.path(path_mod, paste0("rq3_seq_levels_",    tr, "_", tag, suffix, ".rds"))
     
     if (!file.exists(f_fit) || !file.exists(f_pid) || !file.exists(f_seq)) return(invisible(NULL))
-    
+   
     pid_levels <- as.character(readRDS(f_pid))
     seq_levels <- as.character(readRDS(f_seq))
     
@@ -149,9 +149,16 @@ rq3_tables <- function(cfg) {
                         fifelse(get(colL) >= 0.80, "moderate",
                                 fifelse(get(colL) >= 0.50, "weak", "neutral")))]
       
+      seq_tbl[, p_above_grand := apply(mu_s_draws, 2,
+                                       function(x) mean(x > grand_draws))]
+      seq_tbl[, p_below_grand := apply(mu_s_draws, 2,
+                                       function(x) mean(x < grand_draws))]
       seq_tbl[, grand_label := fifelse(
-        mu_c_q025 > grand_mean_val, "above",
-        fifelse(mu_c_q975 < grand_mean_val, "below", "neutral")
+        p_above_grand >= 0.95, "above",
+        fifelse(p_above_grand >= 0.80, "likely_above",
+                fifelse(p_below_grand >= 0.95, "below",
+                        fifelse(p_below_grand >= 0.80, "likely_below",
+                                "neutral")))
       )]
       
       setorder(seq_tbl, sequence)
@@ -187,7 +194,8 @@ rq3_tables <- function(cfg) {
         
         seq_grand <- seq_tbl[, .N, by = grand_label]
         seq_grand[, grand_label := factor(grand_label,
-                                          levels = c("above", "neutral", "below"))]
+                                          levels = c("above", "likely_above", "neutral",
+                                                     "likely_below", "below"))]
         setorder(seq_grand, grand_label)
         seq_grand[, pct := round(100 * N / nrow(seq_tbl), 1)]
         
@@ -246,6 +254,18 @@ rq3_tables <- function(cfg) {
       
       pid_tbl[, n_trials := as.integer(n_trials_by_pid[.(pid), n_trials])]
       setorder(pid_tbl, pid)
+      
+      
+      # ---- Merge RQ1 betting probability ----
+      f_pid_rq1 <- file.path(path_out, paste0("rq1_", tr, "_", tag, "_participants.csv"))
+      if (file.exists(f_pid_rq1)) {
+        pid_rq1 <- fread(f_pid_rq1, encoding = "UTF-8")
+        pid_tbl <- merge(pid_tbl,
+                         pid_rq1[, .(pid, mu_b_mean = mu_i_mean)],
+                         by = "pid", all.x = TRUE)
+      }
+      
+      #save
       fwrite(pid_tbl, f_pid_csv)
       msg("Saved: ", f_pid_csv)
       
@@ -303,15 +323,23 @@ rq3_tables <- function(cfg) {
           sum_draw(post$sigma,   "sigma (residual SD)")
         ))
       } else {
-        # gamma_only -- parameters TBD when rq3_gamma.stan is written
-        mod_tbl <- data.table(parameter = "see rq3_gamma.stan",
-                              median = NA_real_, mean = NA_real_,
-                              q025 = NA_real_, q975 = NA_real_)
+        # gamma_only
+        mod_tbl <- rbindlist(list(
+          sum_draw(post$ap,          "ap (positive mean intercept)"),
+          sum_draw(post$sup,         "sup (between-participant SD)"),
+          sum_draw(post$sbp,         "sbp (between-sequence SD)"),
+          sum_draw(post$shape,       "shape (Gamma shape)"),
+          sum_draw(post$gamma_drift, "gamma_drift (linear drift per block)")
+        ))
       }
       
       mod_tbl[, treatment  := tr]
       mod_tbl[, tag        := tag]
       mod_tbl[, likelihood := likelihood_label]
+      mod_tbl[, n_trials       := nrow(d)]
+      mod_tbl[, n_participants := length(pid_levels)]
+      mod_tbl[, n_sequences    := length(seq_levels)]
+
       
       grand_row <- data.table(
         parameter  = "grand mean mu_c (proportion of endowment)",
