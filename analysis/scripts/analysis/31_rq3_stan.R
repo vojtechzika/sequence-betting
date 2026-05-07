@@ -137,13 +137,13 @@ rq3_stan <- function(cfg) {
   } else NULL
   
   # ---- Compute welfare loss y (shared across models) ----
-  compute_y <- function(d0, tr) {
+  compute_y <- function(d0, tr, tag) {
     
     stopifnot(tr %in% names(m_map))
     m <- as.numeric(m_map[[tr]])
     stopifnot(is.finite(m), m > 1)
     
-    r_tag        <- if (consistent_only) paste0(tr, "_consistent") else tr
+    r_tag <- if (tag == "full") tr else if (consistent_only) paste0(tr, "_consistent") else tr
     f_r          <- file.path(path_mod, paste0("mpl_r_draws_", r_tag, ".rds"))
     stopifnot(file.exists(f_r))
     r_obj        <- readRDS(f_r)
@@ -152,7 +152,9 @@ rq3_stan <- function(cfg) {
     K_all        <- nrow(r_draws_all)
     stopifnot(K_all >= 10L)
     
-    f_a          <- file.path(path_mod, paste0("a_star_draws_", tr, ".rds"))
+    f_a <- file.path(path_mod, paste0("a_star_draws_", tr,
+                                      if (tag == "full") "_full" else "",
+                                      ".rds"))
     stopifnot(file.exists(f_a))
     a_obj        <- readRDS(f_a)
     pid_a_levels <- as.character(a_obj$pid)
@@ -201,7 +203,7 @@ rq3_stan <- function(cfg) {
     if (nrow(d0) == 0) return(invisible(NULL))
     
     # Compute y once, shared across all three models
-    y_obj      <- compute_y(d0, tr)
+    y_obj <- compute_y(d0, tr, tag)
     y          <- y_obj$y
     d          <- y_obj$d
     pid_levels <- y_obj$pid_levels
@@ -311,7 +313,6 @@ rq3_stan <- function(cfg) {
   # ---- PASS 1: full sample ----
   for (tr in tr_vec) {
     d_full <- dt[treat == tr]
-    if (!is.null(consistent_pids)) d_full <- d_full[pid %in% consistent_pids]
     if (nrow(d_full) == 0) next
     fit_one(d_full, tr, "full")
   }

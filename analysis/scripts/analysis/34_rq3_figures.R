@@ -269,7 +269,7 @@ rq3_figures <- function(cfg) {
           ) +
           
               geom_jitter(
-            aes(fill = mu_b_mean),
+            aes(fill = mu_b_median),
             shape  = 21,
             size   = 1.8,
             alpha  = 0.75,
@@ -281,7 +281,7 @@ rq3_figures <- function(cfg) {
           scale_fill_gradient(
             low  = "#E31A1C",   # red = low betting
             high = "#2166AC",   # blue = high betting
-            name = "Mean betting\nprobability",
+            name = "Median betting\nprobability",
             labels = scales::percent_format(accuracy = 1)
           ) +
           

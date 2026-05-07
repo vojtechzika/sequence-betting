@@ -8,8 +8,9 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "01_descriptive_participants.R"))
   source(here::here("scripts", "analysis", "02_descriptive_sequences.R"))
   source(here::here("scripts", "analysis", "03_r_raincloud.R"))
-  source(here::here("scripts", "analysis", "04_raw_stakes_participants.R"))
+  source(here::here("scripts", "analysis", "04_raw_bets_and_stakes_by_trt.R"))
   source(here::here("scripts", "analysis", "05_raw_stakes_sequences.R"))
+  source(here::here("scripts", "analysis", "06_desc_times_and_optimism_by_trt.R"))
   
   source(here::here("scripts", "analysis", "11_rq1_stan.R"))
   source(here::here("scripts", "analysis", "12_rq1_diagnostics.R"))
@@ -48,6 +49,7 @@ run_analysis <- function(cfg) {
   source(here::here("scripts", "analysis", "81_ex4_similarity.R"))
   
   source(here::here("scripts", "analysis", "91_rq1-3_forest.R"))
+  source(here::here("scripts", "analysis", "92_rq1-3_raincloud.R"))
   
   # ----------------------------
   # 00 Space: Descriptives
@@ -55,8 +57,9 @@ run_analysis <- function(cfg) {
   descriptive_participants(cfg)
   descriptive_sequences(cfg)
   r_raincloud(cfg)
-  raw_stakes_participants(cfg)
+  raw_bets_and_stakes_by_trt(cfg)
   raw_stakes_seqeunces(cfg)
+  desc_times_and_optimism_by_trt(cfg)
   
   # ----------------------------
   # 10 Space: RQ1
@@ -109,9 +112,8 @@ run_analysis <- function(cfg) {
    # 70 Space: EX3
    # ----------------------------
    ex3_contrasts(cfg)
-   ex3_rq2_implied_p(cfg)
-   ex3_implied_r(cfg)
-   
+   #ex3_rq2_implied_p(cfg)
+   #ex3_implied_r(cfg)
    ex3_figures(cfg)
    
    # ----------------------------
@@ -124,6 +126,7 @@ run_analysis <- function(cfg) {
    # 90 Space: Misc
    # ----------------------------
    rq1_3_forest(cfg)
+   rq1_3_raincloud(cfg)
 
   
   msg("\nANALYSIS completed for data_folder:", cfg$run$data_folder, "\n")

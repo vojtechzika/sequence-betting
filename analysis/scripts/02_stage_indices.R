@@ -11,6 +11,8 @@ run_indices <- function(cfg) {
   source(here::here("scripts", "indices", "05_classic_r.R"))
   source(here::here("scripts", "indices", "06_block_drift.R"))
   source(here::here("scripts", "indices", "07_button_order.R"))
+  
+  source(here::here("scripts", "indices", "09_mpl_diagnostics.R"))
 
   ### Run Stuff
   score_lotr(cfg)
@@ -20,6 +22,7 @@ run_indices <- function(cfg) {
   classic_r(cfg) # r estimation as a sanity check
   block_drift_check(cfg)
   button_order_check(cfg)
+  mpl_diagnostics(cfg)
   
   msg("\nINDICES completed for data_folder:", cfg$run$data_folder, "\n")
   

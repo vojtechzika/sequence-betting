@@ -116,9 +116,11 @@ rq2_stan <- function(cfg) {
   }
   
   # ---- Prepare z scores ----
-  prepare_z <- function(d0, tr, floor_val, dispersion = "sd") {
+  prepare_z <- function(d0, tr, tag, floor_val, dispersion = "sd") {
     
-    f_astar <- file.path(path_mod, paste0("a_star_draws_", tr, ".rds"))
+    f_astar <- file.path(path_mod, paste0("a_star_draws_", tr,
+                                          if (tag == "full") "_full" else "",
+                                          ".rds"))
     stopifnot(file.exists(f_astar))
     
     ast <- readRDS(f_astar)
@@ -187,7 +189,7 @@ rq2_stan <- function(cfg) {
     if (skip_model && skip_prep) return(invisible(NULL))
     if (nrow(d0) == 0) return(invisible(NULL))
     
-    d <- prepare_z(d0, tr, floor_val, dispersion)
+    d <- prepare_z(d0, tr, tag, floor_val, dispersion)
     if (is.null(d) || nrow(d) == 0) return(invisible(NULL))
     
     # Save excluded participants

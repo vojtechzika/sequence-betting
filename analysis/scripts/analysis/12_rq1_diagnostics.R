@@ -197,6 +197,36 @@ rq1_diagnostics <- function(cfg) {
             " | selected=alternative | drift=", drift_type)
       }
       
+      # ---- PPC density plot ----
+      f_ppc <- file.path(path_fig, paste0("rq1_ppc_", tr, "_", tag, ".png"))
+      if (!should_skip(f_ppc, cfg, "output",
+                       paste0("RQ1 PPC plot (", tr, "/", tag, ")"))) {
+        
+        df_ppc <- rbind(
+          data.table(D = D_rep,  source = "Replicated"),
+          data.table(D = D_obs,  source = "Observed")
+        )
+        
+        p <- ggplot() +
+          geom_density(data = data.table(D = D_rep),
+                       aes(x = D), fill = "#74ADD1", alpha = 0.5,
+                       colour = "#2166AC", linewidth = 0.7) +
+          geom_vline(xintercept = D_obs,
+                     colour = "#C0392B", linewidth = 0.8, linetype = "dashed") +
+          annotate("text", x = Inf, y = Inf,
+                   label = sprintf("PPC p = %.3f\nDrift: %s\nSelected: %s",
+                                   ppc_p, drift_type, selected_model),
+                   hjust = 1.1, vjust = 1.5, size = 3, colour = "grey30") +
+          labs(title = paste0("RQ1 PPC (", tr, "/", tag, ")"),
+               x = "Var(sequence-wise betting rates)",
+               y = "Density") +
+          theme_classic(base_size = 11) +
+          theme(legend.position = "none")
+        
+        ggsave(f_ppc, p, width = 6, height = 4, dpi = 300)
+        msg("Saved: ", f_ppc)
+      }
+      
       all_rows[[paste(tr, tag, sep = "_")]] <- data.table(
         treatment      = tr,
         tag            = tag,

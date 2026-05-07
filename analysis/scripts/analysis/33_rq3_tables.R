@@ -261,7 +261,7 @@ rq3_tables <- function(cfg) {
       if (file.exists(f_pid_rq1)) {
         pid_rq1 <- fread(f_pid_rq1, encoding = "UTF-8")
         pid_tbl <- merge(pid_tbl,
-                         pid_rq1[, .(pid, mu_b_mean = mu_i_mean)],
+                         pid_rq1[, .(pid, mu_b_median = mu_i_median)],
                          by = "pid", all.x = TRUE)
       }
       

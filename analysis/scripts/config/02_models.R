@@ -22,7 +22,7 @@ model_cfg <- function() {
       ),
       
       rq1 = list(
-        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
+        iter = 6000, warmup = 1000, chains = 4, adapt_delta = 0.97, treedepth = 13
       ),
       
       rq2 = list(
@@ -30,7 +30,7 @@ model_cfg <- function() {
       ),
       
       rq3 = list(
-        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
+        iter = 8000, warmup = 1000, chains = 4, adapt_delta = 0.97, treedepth = 13
       ),
       
       rq4 = list(
