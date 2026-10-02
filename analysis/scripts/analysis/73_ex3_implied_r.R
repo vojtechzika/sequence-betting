@@ -1,5 +1,5 @@
 # ============================================================
-# scripts/analysis/73_rq2_implied_r.R
+# 73_ex3_implied_r.R
 #
 # Implied risk aversion from observed stakes under three belief
 # assumptions:

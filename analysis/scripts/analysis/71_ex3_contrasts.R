@@ -1,8 +1,8 @@
 # ============================================================
-# scripts/analysis/71_ex3_rq_contrasts.R
+# 71_ex3_contrasts.R
 #
 # PURPOSE
-#   Computes FN vs FP posterior contrasts for EX3 (RQ1–RQ3).
+#   Computes FN vs FP posterior contrasts for EX3 (RQ1–RQ4).
 #   Sequence-level and group-level participant contrasts are
 #   computed draw-wise from the fitted Stan objects.
 #
@@ -11,15 +11,15 @@
 #   normative-better filtering). EX3 is exploratory throughout.
 #
 # INPUT
-#   path_mod/rq{1,2,3}_fit_sequences_<fn>_full.rds
-#   path_mod/rq{1,2,3}_pid_levels_<fn>_full.rds
-#   path_mod/rq{1,2,3}_seq_levels_<fn>_full.rds
+#   path_mod/rq{1,2,3,4}_fit_sequences_<fn>_full.rds
+#   path_mod/rq{1,2,3,4}_pid_levels_<fn>_full.rds
+#   path_mod/rq{1,2,3,4}_seq_levels_<fn>_full.rds
 #   (analogously for fp treatment)
 #
 # OUTPUT
-#   path_out/ex3_rq{1,2,3}_sequence_contrasts.csv
-#   path_out/ex3_rq{1,2,3}_participant_contrasts.csv
-#   path_out/ex3_rq{1,2,3}_spearman.csv
+#   path_out/ex3_rq{1,2,3,4}_sequence_contrasts.csv
+#   path_out/ex3_rq{1,2,3,4}_participant_contrasts.csv
+#   path_out/ex3_rq{1,2,3,4}_spearman.csv
 #
 # NOTES
 #   - Treatments, thresholds, and sample tag are read from cfg;
@@ -27,15 +27,17 @@
 #   - FN = cfg$run$treatment[1] (confirmatory); FP = [2].
 #   - RQ3 reports sensitivity thresholds at rho_Delta in {0.03, 0.05}
 #     per prereg; these are drawn from cfg$design$rq3$rho[1:2].
-#   - RQ4 contrasts are omitted (selection confound across frames;
-#     see prereg EX3 §RQ4).
-#   - Participant-level contrasts are group-level (between-subject):
-#     draw-wise treatment means are differenced.
+#   - RQ4 contrasts are descriptive only: side choices in FP are
+#     conditioned on betting (b_is = 1), and betting rates differ
+#     sharply across frames, so FN–FP differences in mu_h reflect
+#     a combination of sequence effects and selection into the
+#     conditioning set. Results should be interpreted with caution.
 #
 # CALL ORDER IN PIPELINE
 #   rq1_stan(cfg)      -- must be run first for all treatments
 #   rq2_stan(cfg)      -- must be run first for all treatments
 #   rq3_stan(cfg)      -- must be run first for all treatments
+#   rq4_stan(cfg)      -- must be run first for all treatments
 #   ex3_contrasts(cfg) -- this script
 # ============================================================
 
@@ -53,9 +55,6 @@ ex3_contrasts <- function(cfg) {
   # ----------------------------------------------------------
   # Resolve per-RQ thresholds from cfg$design
   # ----------------------------------------------------------
-  # cfg$design$rq{k}$rho: first element = primary threshold,
-  # remaining = sensitivity. For RQ3 the prereg specifies
-  # rho_Delta in {0.03, 0.05}, which correspond to positions [2,1].
   
   rq_map <- list(
     list(
@@ -75,9 +74,19 @@ ex3_contrasts <- function(cfg) {
       mu_seq     = "mu_c",
       mu_pid     = "mu_c_i",
       thresholds = sort(unique(cfg$design$rq3$rho[1:2]))  # {0.03, 0.05}
+    ),
+    list(
+      rq         = "rq4",
+      mu_seq     = "mu_h",
+      mu_pid     = "mu_h_i",
+      thresholds = cfg$design$rq4$delta[1L],
+      descriptive_note = paste(
+        "RQ4 FN-FP contrasts are descriptive only.",
+        "Side choices in FP are conditioned on betting (b_is=1);",
+        "differences in mu_h reflect both sequence effects and",
+        "selection into the conditioning set across frames."
+      )
     )
-    # RQ4: FN–FP contrasts not computed; selection into conditioning
-    # set (b_is = 1) differs sharply across frames (prereg §EX3 RQ4).
   )
   
   # ----------------------------------------------------------
@@ -121,6 +130,9 @@ ex3_contrasts <- function(cfg) {
     thresholds <- rq$thresholds
     
     msg("EX3 contrasts: ", toupper(rq_name), " (", fn, " vs ", fp, ")")
+    
+    if (!is.null(rq$descriptive_note))
+      msg("  NOTE: ", rq$descriptive_note)
     
     # ---- file paths -------------------------------------------------
     
@@ -191,6 +203,10 @@ ex3_contrasts <- function(cfg) {
       tbl_seq <- rbindlist(rows)
       tbl_seq[, `:=`(rq = rq_name, treatment_fn = fn, treatment_fp = fp)]
       
+      # Flag RQ4 as descriptive only
+      if (rq_name == "rq4")
+        tbl_seq[, descriptive_only := TRUE]
+      
       setcolorder(tbl_seq, c(
         "rq", "sequence", "seq_id", "treatment_fn", "treatment_fp",
         "median", "mean", "q025", "q975", "p_gt0",
@@ -231,6 +247,9 @@ ex3_contrasts <- function(cfg) {
         t(summ_delta(delta_draw, thresholds))
       )
       
+      if (rq_name == "rq4")
+        tbl_pid[, descriptive_only := TRUE]
+      
       fwrite(tbl_pid, f_pid_out)
       msg("  Saved: ", f_pid_out)
     }
@@ -255,6 +274,9 @@ ex3_contrasts <- function(cfg) {
         treatment_fp = fp,
         t(summ_spearman(rho_draws))
       )
+      
+      if (rq_name == "rq4")
+        tbl_spm[, descriptive_only := TRUE]
       
       fwrite(tbl_spm, f_spm_out)
       msg("  Saved: ", f_spm_out)

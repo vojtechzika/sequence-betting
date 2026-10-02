@@ -1,39 +1,29 @@
 # ============================================================
-# 62_ex2_diagnostics.R
+# 55_ex1_2_diagnostics.R
 #
 # PURPOSE
-#   Convergence diagnostics for the EX2 Stan model.
-#   No model selection or PPC: EX2 uses a single fixed
-#   likelihood with no alternative specification.
+#   Convergence diagnostics for the EX1.2 Stan model
+#   (GHI predictors: optimism, RT, risk parameter).
 #
 #   Checks the preregistered convergence criteria
 #   (Rhat <= 1.01, ESS >= 400, zero divergent transitions)
-#   for each treatment, mirroring Table D.4.
+#   for each treatment, mirroring the EX2 diagnostics.
 #
 # INPUT
-#   path_mod/ex2_fit_<tr>.rds
+#   path_mod/ex1_2_fit_<tr>.rds
 #
 # OUTPUT
-#   path_out/ex2_diagnostics.csv
-#     columns: dataset, treatment, Nobs, Trep,
+#   path_out/ex1_2_diagnostics.csv
+#     columns: dataset, treatment, N, Trep,
 #              rhat_max, ess_min, divergences,
 #              rhat_ok, ess_ok, divs_ok, converged
-#
-# NOTES
-#   - Rhat and ESS are taken from rstan::summary() over all
-#     parameters (including transformed parameters and
-#     generated quantities).
-#   - Nobs and Trep are recovered directly from the fit
-#     object's data dimension slot (fit@sim$dims_oi).
-#   - Directories are created by 00_setup.R; no dir.create here.
 # ============================================================
-
 suppressPackageStartupMessages({
   library(data.table)
   library(rstan)
 })
 
-ex2_diagnostics <- function(cfg) {
+ex1_2_diagnostics <- function(cfg) {
   
   # ----------------------------------------------------------
   # 0. Configuration
@@ -44,9 +34,9 @@ ex2_diagnostics <- function(cfg) {
   rhat_threshold <- 1.01
   ess_threshold  <- 400L
   
-  f_out <- file.path(path_out, "ex2_diagnostics.csv")
+  f_out <- file.path(path_out, "ex1_2_diagnostics.csv")
   
-  if (should_skip(f_out, cfg, "output", "EX2 diagnostics"))
+  if (should_skip(f_out, cfg, "output", "EX1.2 diagnostics"))
     return(invisible(NULL))
   
   # ----------------------------------------------------------
@@ -56,18 +46,18 @@ ex2_diagnostics <- function(cfg) {
   
   for (tr in treatments) {
     
-    f_fit <- file.path(path_mod, paste0("ex2_fit_", tr, ".rds"))
+    f_fit <- file.path(path_mod, paste0("ex1_2_fit_", tr, ".rds"))
     
     if (!file.exists(f_fit)) {
-      warning("EX2 diagnostics: fit not found for tr='", tr,
+      warning("EX1.2 diagnostics: fit not found for tr='", tr,
               "', skipping: ", f_fit)
       next
     }
     
-    msg("EX2 diagnostics: checking tr='", tr, "'")
+    msg("EX1.2 diagnostics: checking tr='", tr, "'")
     
     fit  <- readRDS(f_fit)
-    summ <- summary(fit)$summary
+    summ <- rstan::summary(fit)$summary
     
     rhat_max <- max(summ[, "Rhat"],  na.rm = TRUE)
     ess_min  <- min(summ[, "n_eff"], na.rm = TRUE)
@@ -80,16 +70,12 @@ ex2_diagnostics <- function(cfg) {
     divs_ok   <- divs == 0L
     converged <- rhat_ok & ess_ok & divs_ok
     
-    # Recover Nobs and Trep from the fit object's data dimensions
-    Nobs <- tryCatch({
-      x <- fit@sim$dims_oi[["y_rep"]][2L]
-      if (is.null(x) || length(x) == 0L) NA_integer_ else as.integer(x)
-    }, error = function(e) NA_integer_)
-    
-    Trep <- tryCatch({
-      x <- fit@sim$dims_oi[["y_rep"]][1L]
-      if (is.null(x) || length(x) == 0L) NA_integer_ else as.integer(x)
-    }, error = function(e) NA_integer_)
+    # Recover N and Trep from y_rep dimensions (matrix[Trep, N] in data block)
+    y_rep_dims <- fit@sim$dims_oi[["y_rep"]]
+    Trep <- if (!is.null(y_rep_dims) && length(y_rep_dims) >= 1L)
+      as.integer(y_rep_dims[1L]) else NA_integer_
+    N    <- if (!is.null(y_rep_dims) && length(y_rep_dims) >= 2L)
+      as.integer(y_rep_dims[2L]) else NA_integer_
     
     msg("  Rhat_max=",    round(rhat_max, 4),
         " | ESS_min=",    round(ess_min,  0),
@@ -97,12 +83,12 @@ ex2_diagnostics <- function(cfg) {
         " | converged=",  converged)
     
     if (!converged)
-      warning("EX2 diagnostics: convergence criteria not met for tr='", tr, "'.")
+      warning("EX1.2 diagnostics: convergence criteria not met for tr='", tr, "'.")
     
     rows[[tr]] <- data.table(
       dataset     = ds,
       treatment   = tr,
-      Nobs        = Nobs,
+      N           = N,
       Trep        = Trep,
       rhat_max    = round(rhat_max, 4),
       ess_min     = round(ess_min,  0),
@@ -118,7 +104,7 @@ ex2_diagnostics <- function(cfg) {
   # 2. Save
   # ----------------------------------------------------------
   if (length(rows) == 0L) {
-    warning("EX2 diagnostics: no fits found; output not written.")
+    warning("EX1.2 diagnostics: no fits found; output not written.")
     return(invisible(NULL))
   }
   

@@ -47,7 +47,9 @@ pkgs <- c(
   # Figures
   "ggplot2", "ggdist", "patchwork", "scales",
   # Utilities
-  "parallel"
+  "parallel",
+  # Parametric stat
+  "lmtest"
 )
 to_install <- pkgs[!pkgs %in% rownames(installed.packages())]
 if (length(to_install)) install.packages(to_install, dependencies = TRUE)
@@ -70,12 +72,13 @@ path_src <- file.path(here::here("data"), cfg$run$data_folder, "etl")
 path_out <- file.path(here::here("data"), cfg$run$data_folder, "output")
 path_mod <- file.path(here::here("data"), cfg$run$data_folder, "models")
 path_fig <- file.path(here::here("data"), cfg$run$data_folder, "figures")
+path_tab <- file.path(here::here("data"), cfg$run$data_folder, "tables")
 
 # ============================================================
 # CREATE DIRECTORIES
 # ============================================================
 # Note: path_raw is not created here -- it must already exist with raw data
-for (.p in c(path_src, path_out, path_mod, path_fig)) {
+for (.p in c(path_src, path_out, path_mod, path_fig, path_tab)) {
   dir.create(.p, showWarnings = FALSE, recursive = TRUE)
 }
 

@@ -1,5 +1,5 @@
 # ============================================================
-# 04_desc_times_and_optimism_by_trt.R
+# 06_desc_times_and_optimism_by_trt.R
 #
 # PURPOSE
 #   Combined figure with two panels:

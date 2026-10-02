@@ -105,6 +105,14 @@ design_cfg <- function() {
       ppc_overdisp_cut = 0.95        # prereg trigger cutoff for Beta–Binomial robustness
     ),
     
+    # --------------------------------------------------------
+    # EX1 (Distributional similarity and GHI)
+    # --------------------------------------------------------
+    ex1 = list(
+      eps   = c(0.05, 0.03, 0.08),  # tolerance band; first = main analysis
+      eta   = 1e-6,                  # weight stabiliser
+      delta = c(0.05, 0.03, 0.08)   # chi_s / chi_i classification threshold; first = main
+    ),
     
     # --------------------------------------------------------
     # EX2

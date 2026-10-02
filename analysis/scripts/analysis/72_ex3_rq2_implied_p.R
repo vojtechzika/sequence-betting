@@ -1,5 +1,5 @@
 # ============================================================
-# scripts/analysis/72_ex3_rq2_implied_prob.R
+# 72_ex3_rq2_implied_pr.R
 #
 # PURPOSE
 #   EX3 / RQ2: Implied subjective win probabilities from

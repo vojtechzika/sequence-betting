@@ -1,5 +1,5 @@
 # ============================================================
-# scripts/analysis/55_ex1_3_pure_approximation.R
+# 56_ex1_3_ghi_vs_pure.R
 #
 # EX1.3 Pure-sequence approximation to the GHI
 #

@@ -42,7 +42,7 @@ model_cfg <- function() {
       ),
       
       ex2 = list(
-        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
+        iter = 2000, warmup = 1000, chains = 4, adapt_delta = 0.99, treedepth = 13
       )
     ),
     
@@ -50,18 +50,19 @@ model_cfg <- function() {
     # Posterior predictive replicates
     # --------------------------------------------------------
     ppc = list(
+      rq1_interval = c(0.05, 0.95),
       rq1_k        = 1000L,
       rq3_k        = 1000L,
       rq4_k        = 1000L,
-      rq1_interval = c(0.05, 0.95)
+      rq4_mc_M = 2000L
     ),
     
     # --------------------------------------------------------
     # Simulation / resampling reps
     # --------------------------------------------------------
     simulation = list(
-      ex1_trep = 1000L,
-      ex2_trep = 1000L
+      ex1_trep = 200L,
+      ex2_trep = 200L
     ),
     
     # --------------------------------------------------------

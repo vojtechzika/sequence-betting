@@ -1,5 +1,5 @@
 # ============================================================
-# 76_sequence_descriptives.R
+# 05_raw_stakes_sequences.R
 # ============================================================
 
 raw_stakes_sequences <- function(cfg) {

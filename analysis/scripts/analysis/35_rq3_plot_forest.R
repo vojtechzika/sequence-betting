@@ -1,11 +1,30 @@
 # ============================================================
-# 91_rq1_3_forest.R
+# 35_rq3_plot_forest.R
 #
 # Panel order:  RQ3 (with y-axis labels) | RQ1 | RQ2
 # Sequences:    ordered by RQ3 posterior mean welfare loss (high→low)
 # Label colours: 0 RQs flagged (RQ1+RQ2) = grey, 1 = #1B7837, 2 = #CC0000
 # Legend:       standalone ggplot row below the panels
 # No title or caption.
+#
+# Also produces a compact scatter companion: RQ1 (betting probability)
+# and RQ2 (stake deviation) sequence-level deviations from their own
+# grand means, plotted against each sequence's RANK on RQ3 welfare loss
+# (1 = highest loss). Built to show the pattern described in the text --
+# that betting-probability deviations track the welfare-loss ordering
+# while stake deviations scatter around zero throughout -- in one
+# compact panel rather than three tall columns of individual CIs.
+# The two pure sequences (HHHHHH, TTTTTT) are highlighted and labelled,
+# since they are the exception singled out in the text (both margins
+# deviate); they are EXCLUDED from the fitted trend lines (OLS, not
+# loess) so that their extreme values at the top of the welfare-loss
+# ranking don't distort the trend that describes the other 62
+# sequences. Intended for the main text, with the full forest plot
+# above moved to the appendix as the detailed per-sequence reference.
+#
+# The OLS slope, SE, t, and p-value behind each trend line (fit on the
+# same 62 non-pure sequences) are written to a small CSV alongside the
+# figures, for reporting the numbers in the figure caption.
 # ============================================================
 
 rq1_3_forest <- function(cfg) {
@@ -15,6 +34,9 @@ rq1_3_forest <- function(cfg) {
   library(gridExtra)
   library(grid)
   library(scales)
+  
+  has_ggrepel <- requireNamespace("ggrepel", quietly = TRUE)
+  if (has_ggrepel) library(ggrepel)
   
   f_rq1 <- file.path(path_out, "rq1_m25_confirmatory_forest_data.csv")
   f_rq2 <- file.path(path_out, "rq2_m25_confirmatory_forest_data.csv")
@@ -133,11 +155,11 @@ rq1_3_forest <- function(cfg) {
   }
   
   p3 <- make_panel(rq3,
-                   x_label         = expression(hat(mu)[s]^c ~ "(welfare loss, share of endowment)"),
+                   x_label         = expression(hat(mu)[s]^c ~ "(Welfare loss, share of endowment)"),
                    show_y_labels   = TRUE,
                    y_label_colours = label_colours)
-  p1 <- make_panel(rq1, expression(hat(mu)[s]^b ~ "(betting probability)"))
-  p2 <- make_panel(rq2, expression(hat(mu)[s]^a ~ "(stake deviation, share of endowment)"))
+  p1 <- make_panel(rq1, expression(hat(mu)[s]^b ~ "(Betting rate)"))
+  p2 <- make_panel(rq2, expression(hat(mu)[s]^a ~ "(Stake deviation, share of endowment)"))
   
   # ---- Legend as its own ggplot -------------------------------------------
   legend_plot <- ggplot(
@@ -163,7 +185,7 @@ rq1_3_forest <- function(cfg) {
           legend.box.margin = margin(0, 0, 0, 0),
           plot.margin       = margin(0, 0, 0, 0))
   
-  # ---- Assemble -----------------------------------------------------------
+  # ---- Assemble forest plot -------------------------------------------------
   grob_p3     <- ggplotGrob(p3)
   grob_p1     <- ggplotGrob(p1)
   grob_p2     <- ggplotGrob(p2)
@@ -178,9 +200,110 @@ rq1_3_forest <- function(cfg) {
     heights = unit(c(1, 0.06), c("null", "npc"))
   )
   
-  f_out <- file.path(path_fig, "combined_rq1_3_sequences_forest.png")
-  ggsave(f_out, plot = final, width = 17, height = 18, dpi = 300)
-  message("Saved: ", f_out)
+  f_out_forest <- file.path(path_fig, "combined_rq1_3_sequences_forest.png")
+  ggsave(f_out_forest, plot = final, width = 17, height = 18, dpi = 300)
+  message("Saved: ", f_out_forest)
+  
+  # ---- Compact scatter companion -------------------------------------------
+  # Same three data.tables, still in seq_order (RQ3 desc). Rank is just
+  # position in that ordering; grand means come straight off row 1 of
+  # rq1/rq2 (constant across rows, as used in make_panel() above).
+  
+  rank_tbl <- data.table(sequence = seq_order, rank_loss = seq_along(seq_order))
+  
+  gm_rq1 <- rq1[1, grand_mean]
+  gm_rq2 <- rq2[1, grand_mean]
+  
+  dt <- data.table(
+    sequence  = seq_order,
+    rank_loss = rank_tbl[, rank_loss],
+    bet_dev   = rq1[match(seq_order, sequence), mu_mean] - gm_rq1,
+    stake_dev = rq2[match(seq_order, sequence), mu_mean] - gm_rq2
+  )
+  
+  dt_long <- melt(dt, id.vars = c("sequence", "rank_loss"),
+                  measure.vars  = c("bet_dev", "stake_dev"),
+                  variable.name = "margin", value.name = "deviation")
+  
+  dt_long[, margin := factor(margin,
+                             levels = c("bet_dev", "stake_dev"),
+                             labels = c("Betting-rate Δ",
+                                        "Stake-deviation Δ"))]
+  
+  dt_long[, is_pure := sequence %in% c("HHHHHH", "TTTTTT")]
+  
+  # Project's standard binary-contrast pair (used for FN/FP, above/below
+  # grand mean, and Head/Tail bias throughout the other figure scripts).
+  margin_colours <- c("Betting-rate Δ"    = "#2166AC",
+                      "Stake-deviation Δ" = "#C0392B")
+  
+  # Trend lines are OLS, fit only on the 62 non-pure sequences: the two
+  # pure sequences sit at the top of the welfare-loss ranking with an
+  # extreme, opposite-signed betting deviation (they're the acknowledged
+  # exception, not part of the gradient the line is meant to summarise),
+  # and including them -- especially in a loess -- pulls the fitted curve
+  # into a non-monotonic shape at the boundary that overstates structure
+  # the text doesn't claim. A straight line fit on the remainder states
+  # the "one margin trends, one doesn't" contrast directly.
+  dt_trend <- dt_long[is_pure == FALSE]
+  
+  # ---- OLS slope table, written to CSV for the figure caption -------------
+  trend_stats <- rbindlist(lapply(levels(dt_trend$margin), function(m) {
+    fit <- lm(deviation ~ rank_loss, data = dt_trend[margin == m])
+    co  <- summary(fit)$coefficients
+    data.table(
+      margin    = m,
+      n         = nobs(fit),
+      slope     = co["rank_loss", "Estimate"],
+      se        = co["rank_loss", "Std. Error"],
+      t_value   = co["rank_loss", "t value"],
+      p_value   = co["rank_loss", "Pr(>|t|)"],
+      r_squared = summary(fit)$r.squared
+    )
+  }))
+  
+  f_out_stats <- file.path(path_out, "combined_rq1_3_sequences_scatter_trend_stats.csv")
+  fwrite(trend_stats, f_out_stats)
+  message("Saved: ", f_out_stats)
+  
+  p_scatter <- ggplot(dt_long, aes(x = rank_loss, y = deviation, colour = margin)) +
+    geom_hline(yintercept = 0, colour = "grey50", linewidth = 0.4, linetype = "dashed") +
+    geom_point(aes(shape = is_pure, size = is_pure), alpha = 0.75) +
+    geom_smooth(data = dt_trend, method = "lm", se = TRUE,
+                linewidth = 0.9, alpha = 0.12) +
+    scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 17), guide = "none") +
+    scale_size_manual(values = c(`FALSE` = 1.6, `TRUE` = 3.2), guide = "none") +
+    scale_colour_manual(values = margin_colours, name = NULL) +
+    scale_fill_manual(values = margin_colours, guide = "none") +
+    scale_x_continuous(name = "Sequence rank (1 = highest welfare loss)") +
+    scale_y_continuous(name   = "Deviation from grand mean",
+                       labels = percent_format(accuracy = 1)) +
+    theme_classic(base_size = 10) +
+    theme(legend.position = "bottom",
+          axis.title      = element_text(size = 9),
+          plot.margin     = margin(4, 8, 4, 4))
+  
+  if (has_ggrepel) {
+    p_scatter <- p_scatter +
+      ggrepel::geom_text_repel(
+        data                = dt_long[is_pure == TRUE],
+        aes(label = sequence), colour = "black", size = 2.8,
+        family = "mono", fontface = "bold", show.legend = FALSE,
+        min.segment.length = 0, seed = 1
+      )
+  } else {
+    p_scatter <- p_scatter +
+      geom_text(
+        data                = dt_long[is_pure == TRUE],
+        aes(label = sequence), colour = "black", size = 2.8,
+        family = "mono", fontface = "bold", show.legend = FALSE,
+        vjust = -0.8
+      )
+  }
+  
+  f_out_scatter <- file.path(path_fig, "combined_rq1_3_sequences_scatter.png")
+  ggsave(f_out_scatter, plot = p_scatter, width = 20, height = 10, units = "cm", dpi = 300)
+  message("Saved: ", f_out_scatter)
   
   invisible(TRUE)
 }

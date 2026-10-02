@@ -1,5 +1,5 @@
 # ============================================================
-# scripts/analysis/81_ex4_similarity.R
+# 81_ex4_similarity.R
 #
 # EX4: Similarity between anchor-based and canonical rule-based
 # classifications
