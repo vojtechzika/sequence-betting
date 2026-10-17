@@ -22,6 +22,39 @@
 #   is not detected by the usual convergence diagnostics. The sampler uses
 #   Stan's default random initial values.
 #
+# DEPARTURE FROM THE PREREGISTERED ESTIMATION PROCEDURE
+#   The preregistered model (likelihood, priors, estimand) is estimated in
+#   Stan for every participant, with one exception that is handled by
+#   exact computation. For a participant who chooses the risky lottery in
+#   every row, the posterior of r_i is the prior truncated at a hard
+#   boundary: the observed choice in the first row is probable only if r_i
+#   lies below the value at which the first lottery pair is indifferent
+#   (r = -2.48 under the design), and the log-likelihood falls by more than
+#   100 within 0.001 of r_i above that value. The posterior mass lies in a
+#   narrow region far in the lower tail of the prior. The sampler cannot
+#   traverse this boundary: with initial values at the posterior mode it
+#   saturated the maximum tree depth and produced divergent transitions, and
+#   with random initial values all chains end in a distant local mode at
+#   high r and low lambda that has negligible posterior mass, where the
+#   convergence diagnostics are satisfied but the estimate of r_i has the
+#   wrong sign.
+#
+#   Each participant's posterior has only two parameters (r_i, log lambda_i),
+#   so it can be computed to numerical precision on a grid. The rule is:
+#   for every participant whose sampler posterior mean of r_i differs from
+#   the grid posterior mean by more than grid_tol, the draws of r_i are
+#   replaced by an equal number of draws from the exact posterior, evaluated
+#   on a grid that is refined around the region carrying the posterior mass.
+#   The model is unchanged, no participant is excluded, and the rule uses
+#   the Holt-Laury choices only. A replacement share above exact_share_max
+#   fails a check, so that this step cannot mask a general sampling problem.
+#   Replaced participants are listed in exact-draw-participants.csv. The
+#   saved Stan fits (fit-<tag>.rds) contain the original sampler draws.
+#   Participants for whom the posterior has this boundary are those with an
+#   all-risky choice pattern; the data then identify that r_i lies below the
+#   boundary, and the location of the posterior within that region reflects
+#   the prior.
+#
 # INPUT
 #   path_src/holt-laury.csv               -- MPL choices c1..cK
 #   path_src/participants.csv             -- treatment and sex
@@ -31,6 +64,9 @@
 # OUTPUT (model folder path_mod/mpl-bernoulli/)
 #   fit-<tag>.rds        -- Stan fit objects
 #   r-draws-<tag>.rds    -- list(pid, r_draws): posterior draws of r_i
+#                           (exact-posterior draws for replaced participants)
+#   exact-draw-participants.csv -- participants whose draws were replaced:
+#                           sampler, grid and exact posterior means of r_i
 #   scored-<tag>.csv     -- r_mean, r_median, inconsistent per pid
 #   summary.csv          -- summary of r_mean by tag, consistency, sex
 #   diagnostics.csv      -- convergence checks per fit, and the largest
@@ -96,6 +132,63 @@ mpl_grid_posterior <- function(ymat, p, A1, A2, B1, B2, prior,
   }, numeric(3)))
 }
 
+# ------------------------------------------------------------
+# Draws of r_i from the exact posterior of one participant
+#   y:    choices of the participant (1 = safe, 0 = risky), one per row
+#   n:    number of draws
+# The posterior of (r_i, log lambda_i) is evaluated on a grid. A coarse pass
+# locates the region carrying the posterior mass; the grid is then refined
+# there (step r_step / refine, at most max_points points) and r_i is drawn
+# from its marginal posterior, with a uniform draw within the grid cell.
+# Returns the draws and the posterior mean of r_i on the refined grid.
+# ------------------------------------------------------------
+mpl_exact_draws <- function(y, p, A1, A2, B1, B2, prior, n, seed,
+                            r_step = 0.025, refine = 250, max_points = 40000L,
+                            mass_tol = 1e-10,
+                            ll_grid = seq(-2, 8, by = 0.05)) {
+  crra <- function(x, r) ifelse(abs(r - 1) < 1e-8, log(x), x^(1 - r) / (1 - r))
+  
+  # Log posterior (up to a constant): r in rows, log lambda in columns
+  log_post <- function(r_grid) {
+    d1  <- crra(A1, r_grid) - crra(B1, r_grid)
+    d2  <- crra(A2, r_grid) - crra(B2, r_grid)
+    lam <- exp(ll_grid)
+    lp  <- outer(dnorm(r_grid,  prior$r_mean, prior$r_sd, log = TRUE),
+                 dnorm(ll_grid, log(prior$lambda_mean), prior$lambda_sd, log = TRUE),
+                 "+")
+    for (k in seq_along(p)) {
+      z    <- outer(p[k] * d1 + (1 - p[k]) * d2, lam)
+      logS <- -(pmax(-z, 0) + log1p(exp(-abs(z))))   # log logistic(z)
+      lp   <- lp + (if (y[k] == 1L) logS else logS - z)
+    }
+    lp
+  }
+  
+  # Marginal posterior weights of r on a grid
+  r_weights <- function(r_grid) {
+    lp <- log_post(r_grid)
+    w  <- rowSums(exp(lp - max(lp)))
+    w / sum(w)
+  }
+  
+  # Coarse pass: region carrying the posterior mass
+  r_coarse <- seq(-8, 4, by = r_step)
+  w0       <- r_weights(r_coarse)
+  keep     <- which(w0 / max(w0) > mass_tol)
+  lo       <- r_coarse[min(keep)] - r_step
+  hi       <- r_coarse[max(keep)] + r_step
+  
+  # Refined pass
+  step   <- max(r_step / refine, (hi - lo) / max_points)
+  r_fine <- seq(lo, hi, by = step)
+  w      <- r_weights(r_fine)
+  
+  set.seed(seed)
+  idx <- sample.int(length(r_fine), size = n, replace = TRUE, prob = w)
+  list(draws = r_fine[idx] + runif(n, -step / 2, step / 2),
+       mean  = sum(w * r_fine))
+}
+
 mpl_stan_bernoulli <- function(cfg) {
   
   run <- model_begin("mpl-bernoulli")
@@ -103,6 +196,7 @@ mpl_stan_bernoulli <- function(cfg) {
   
   seed            <- as.integer(cfg$run$seed)
   grid_tol        <- 0.10   # tolerated |sampler - grid| posterior mean of r_i
+  exact_share_max <- 0.05   # largest share of participants with replaced draws
   consistent_only <- isTRUE(cfg$run$consistent_only)
   design          <- cfg$design
   treatments      <- names(design$seq$treatments)
@@ -242,6 +336,28 @@ mpl_stan_bernoulli <- function(cfg) {
     saveRDS(fit, file.path(run, paste0("fit-", tag_file, ".rds")))
     
     post <- rstan::extract(fit)
+    
+    # Participants whose sampler posterior mean differs from the exact grid
+    # posterior mean get draws from the exact posterior (see header)
+    sampler_mean <- colMeans(post$r)
+    off          <- which(abs(sampler_mean - grid[, "r_mean"]) > grid_tol)
+    exact_log    <- data.table(pid = character(), tag = character(),
+                               sampler_mean = numeric(), grid_mean = numeric(),
+                               exact_mean = numeric())
+    for (j in off) {
+      ex <- mpl_exact_draws(ymat[j, ], p_sched, A_high, A_low, B_high, B_low,
+                            prior = list(r_mean = prior_r_mean, r_sd = prior_r_sd,
+                                         lambda_mean = prior_lambda_mean,
+                                         lambda_sd = prior_lambda_sd),
+                            n = nrow(post$r), seed = seed + j)
+      post$r[, j] <- ex$draws
+      exact_log <- rbind(exact_log,
+                         data.table(pid = pid_levels[j], tag = tag,
+                                    sampler_mean = sampler_mean[j],
+                                    grid_mean = grid[j, "r_mean"],
+                                    exact_mean = ex$mean))
+    }
+    
     saveRDS(list(pid = pid_levels, r_draws = post$r),
             file.path(run, paste0("r-draws-", tag_file, ".rds")))
     
@@ -255,18 +371,25 @@ mpl_stan_bernoulli <- function(cfg) {
     fwrite(scored[, .(pid, tag, r_mean, r_median, inconsistent)],
            file.path(run, paste0("scored-", tag_file, ".csv")))
     
-    # Agreement between the sampler and the grid posterior mean of r_i
+    # Agreement between the draws used downstream and the grid posterior mean
+    # of r_i, and the share of participants whose draws were replaced
     grid_diff <- max(abs(colMeans(post$r) - grid[, "r_mean"]))
     grid_row  <- data.table(tag = tag, treatment = treatment, sample = sample,
                             check = "grid_max_abs_diff", value = grid_diff,
                             threshold = grid_tol, pass = grid_diff <= grid_tol)
+    exact_share <- length(off) / length(pid_levels)
+    exact_row   <- data.table(tag = tag, treatment = treatment, sample = sample,
+                              check = "exact_draw_share", value = exact_share,
+                              threshold = exact_share_max,
+                              pass = exact_share <= exact_share_max)
     
     list(
       scored = scored,
+      exact  = exact_log,
       diag   = rbind(stan_diagnostics(fit, tag = tag, treatment = treatment,
                                       sample = sample, cfg = cfg,
                                       max_treedepth = treedepth_val),
-                     grid_row)
+                     grid_row, exact_row)
     )
   }
   
@@ -314,6 +437,10 @@ mpl_stan_bernoulli <- function(cfg) {
     }
   }
   fwrite(rbindlist(summary_list), file.path(run, "summary.csv"))
+  
+  # ---- Participants whose draws come from the exact posterior ----
+  fwrite(rbindlist(lapply(results, `[[`, "exact")),
+         file.path(run, "exact-draw-participants.csv"))
   
   # ---- Diagnostics (written last: marks the run as complete) ----
   # Model property read by the a* step: whether participants are partially pooled
