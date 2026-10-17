@@ -1,0 +1,20 @@
+# Models used downstream.
+# Each line maps a model key to the folder under data/models/ whose results the later
+# modelling and output scripts read, so all of them use the same version of every model.
+# Add a line after checking the diagnostics of a finished model; the model script prints
+# the line to add (e.g. "mpl,mpl-bernoulli"). To switch to another version of a model,
+# change the folder in its line.
+#   key     name the scripts use to refer to the model (e.g. "mpl", "rq1")
+#   folder  name of the model folder under data/models/
+#   note    free text, optional
+# Lines starting with '#' are ignored.
+key,folder,note
+mpl,mpl-bernoulli,
+rq1,rq1-bernoulli,
+rq2,rq2-one-inflated-seq,
+rq3,rq3-hurdle-gamma, 
+rq4,rq4-bernoulli,
+ex1-chi,ex1-chi-draws,
+ex1-regression,ex1-regression,
+ex2,ex2-associations,
+synthesis,synthesis-joint,

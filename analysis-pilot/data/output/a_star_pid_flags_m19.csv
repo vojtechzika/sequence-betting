@@ -1,0 +1,4 @@
+dataset,treatment,pid,P0,Pplus,betting_normative,flag_betters_tau090,flag_betters_tau080,flag_betters_tau095
+pilot,m19,gih6nd5f,1,0,FALSE,FALSE,FALSE,FALSE
+pilot,m19,iiw1neqh,1,0,FALSE,FALSE,FALSE,FALSE
+pilot,m19,s3l5cnfu,1,0,FALSE,FALSE,FALSE,FALSE

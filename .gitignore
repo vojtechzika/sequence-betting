@@ -1,4 +1,11 @@
 # =====================================================
+# TEMPORARY: data and outputs are not committed until the final run
+# Remove this block for the final version.
+# =====================================================
+analysis-main/data/
+
+
+# =====================================================
 # Python / packaging
 # =====================================================
 __pycache__/
@@ -87,35 +94,19 @@ db.sqlite3-journal
 # =====================================================
 .Rproj.user/
 .Rhistory
+.Rapp.history
 .RData
 .Ruserdata
-analysis/.Rproj.user/
-analysis/.Rhistory
-analysis/.RData
 
-# =====================================================
-# Stan compiled objects (keep .stan source files)
-# =====================================================
-analysis/stan/*.rds
-analysis/stan/*.o
-analysis/stan/*.d
-analysis/stan/*.hpp
-
-# =====================================================
-# Data policy
-# =====================================================
-# Never commit raw human subject data
-raw_data/
-
-# Never commit participant-level analysis data
-# ETL outputs, model fits, figures are all regenerable
-analysis/data/
+# Serialised R objects (model fits and caches, regenerable)
+*.rds
+*.RData
+*.rda
 
 # =====================================================
 # LaTeX build artifacts
 # =====================================================
 *.aux
-*.log
 *.out
 *.toc
 *.synctex.gz

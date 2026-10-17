@@ -1,0 +1,2 @@
+dataset,n_participants,n_items,raw_alpha,standardized_alpha,average_inter_item_correlation,interpretation
+pilot,10,6,0.9438,0.9438,0.7369,Excellent internal consistency (may be inflated in small samples).

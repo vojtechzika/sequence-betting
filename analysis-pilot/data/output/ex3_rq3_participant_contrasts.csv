@@ -1,0 +1,2 @@
+dataset,rq,treatment_fn,treatment_fp,n_pid_fn,n_pid_fp,median,mean,q025,q975,p_gt0,p_abs_gt_005
+pilot,rq3,m25,m19,7,3,-0.0524896861937539,-0.0523869486765429,-0.0815607402980442,-0.0227918900348464,0,0.558

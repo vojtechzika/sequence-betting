@@ -1,0 +1,2 @@
+N,age_mean,age_sd,sex_F_n,sex_M_n,sex_O_n,payoff_mean,payoff_sd,lotr_mean,lotr_sd,r_mean,r_sd,hl_inconsistent_n,hl_inconsistent_frac,r_mean_F,r_mean_M,r_mean_O
+10,22.6,1.83787316694536,6,4,0,154.3,66.3392794654871,13,6.54896090146283,0.734840630174215,0.693452363840283,4,0.4,0.629240508664155,0.893240812439304,

@@ -1,0 +1,2 @@
+dataset,treatment,N,K,K_finite,rho_median,rho_mean,rho_q025,rho_q975,p_rho_gt0
+pilot,m19,2,1500,0,,,,,
