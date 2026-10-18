@@ -29,9 +29,9 @@
 #   RQ1 "rq1": the model selected in selected-models.csv.
 #   RQ3: the hurdle-Gamma model in both treatments
 #   (folder rq3-hurdle-gamma), whatever is selected for "rq3", so that the
-#   estimand E[y] is the same in both arms; in FN the hurdle probability is
-#   negligible and the model coincides with the Gamma-only model (checked in
-#   73_ex3-rq3-likelihood-check.R).
+#   estimand E[y] is the same in both arms. The agreement of the hurdle-Gamma
+#   model with the Gamma-only and Gaussian models is reported in
+#   35_rq3-likelihood-comparison.R.
 #
 # INPUT
 #   fit-, pid-levels-, seq-levels-<tr>-full.rds of the models above

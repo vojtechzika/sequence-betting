@@ -132,17 +132,19 @@ rq3_tables <- function(cfg) {
               is.matrix(mu_i), ncol(mu_i) == length(pid_levels))
     # Scale check: the estimands are proportions of the endowment. The
     # Gamma and Gaussian likelihoods have no upper bound at 1, so for
-    # participants whose losses are close to the whole endowment single
-    # draws can exceed 1 (reported, not clipped); absolute values above 2
-    # indicate a scale error.
-    max_abs <- max(abs(mu_s), abs(mu_i))
-    if (!is.finite(max_abs) || max_abs > 2)
-      stop("RQ3 tables: estimands of ", tr, "/", sample, " are not on the scale of the endowment (max |draw| = ",
-           signif(max_abs, 3), ").", call. = FALSE)
+    # participants with a large participant effect single draws of the
+    # participant-level mean can exceed 1 (reported, not clipped). The
+    # sequence-level means average over participants and must stay on the
+    # scale of the endowment: absolute values above 2 indicate a scale error.
+    max_seq <- max(abs(mu_s))
+    max_pid <- max(abs(mu_i))
+    if (!is.finite(max_seq) || !is.finite(max_pid) || max_seq > 2)
+      stop("RQ3 tables: sequence-level estimands of ", tr, "/", sample, " are not on the scale of the endowment (max |draw| = ",
+           signif(max_seq, 3), ").", call. = FALSE)
     n_out <- sum(colMeans(mu_i < 0 | mu_i > 1) > 0)
     if (n_out > 0L)
       warning("RQ3 tables: ", tr, "/", sample, ": draws outside [0, 1] for ", n_out,
-              " participant(s) (max |draw| = ", round(max_abs, 3), "); not clipped.", call. = FALSE)
+              " participant(s) (max |draw| = ", round(max_pid, 3), "); not clipped.", call. = FALSE)
 
     # trials of the sample
     d <- analysis_trials(tr, paste0("rq3-", sample))

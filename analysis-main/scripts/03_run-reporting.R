@@ -85,6 +85,10 @@ run_reporting <- function(cfg) {
   source(here::here("scripts", "reporting", "34_rq3-floor-robustness.R"))
   rq3_floor_robustness(cfg)
   
+  # Comparison of the hurdle-Gamma, Gamma-only and Gaussian likelihoods
+  source(here::here("scripts", "reporting", "35_rq3-likelihood-comparison.R"))
+  rq3_likelihood_comparison(cfg)
+  
   
   # ----------------------------
   # 40 Space: RQ4 (Side choice)
@@ -121,9 +125,6 @@ run_reporting <- function(cfg) {
   # ----------------------------
   source(here::here("scripts", "reporting", "71_ex3-contrasts.R"))
   ex3_contrasts(cfg)
-  
-  source(here::here("scripts", "reporting", "73_ex3-rq3-likelihood-check.R"))
-  ex3_rq3_likelihood_check(cfg)
   
   source(here::here("scripts", "reporting", "72_ex3-figures.R"))
   ex3_figures(cfg)

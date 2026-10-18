@@ -2,9 +2,9 @@
 // RQ3: Certainty-equivalent welfare loss (hurdle-Gamma)
 // y_t = Δc_is / e, can be zero
 //
-// Preregistered primary model. The Gamma-only model (rq3-gamma.stan) is
-// preferred when the model-implied mean probability of a zero loss is
-// below 0.05.
+// Preregistered primary model, used in every sample. The Gamma-only model
+// (rq3-gamma.stan) is a robustness check for samples in which the model-
+// implied mean probability of a zero loss is below 0.05.
 //
 // hurdle:
 //   P(y=0) = pi0_is

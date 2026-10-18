@@ -144,8 +144,12 @@ stan_diagnostics <- function(fit, tag, treatment = NA_character_,
   summ <- rstan::summary(fit)$summary
   sp   <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
   
-  rhat_max <- max(summ[, "Rhat"],  na.rm = TRUE)
-  ess_min  <- min(summ[, "n_eff"], na.rm = TRUE)
+  # Quantities without posterior variation (for example the diagonal of a
+  # correlation matrix, equal to 1 in every draw) have no defined ESS or
+  # R-hat and are left out of both minima; their number is reported.
+  varying  <- is.finite(summ[, "sd"]) & summ[, "sd"] > 1e-10
+  rhat_max <- max(summ[varying, "Rhat"],  na.rm = TRUE)
+  ess_min  <- min(summ[varying, "n_eff"], na.rm = TRUE)
   diverg   <- sum(vapply(sp, function(x) sum(x[, "divergent__"]), numeric(1)))
   tdhits   <- sum(vapply(sp, function(x) sum(x[, "treedepth__"] >= max_treedepth),
                          numeric(1)))
@@ -160,11 +164,12 @@ stan_diagnostics <- function(fit, tag, treatment = NA_character_,
     tag       = tag,
     treatment = as.character(treatment),
     sample    = as.character(sample),
-    check     = c("rhat_max", "ess_min", "divergences", "treedepth_hits", "ebfmi_min"),
-    value     = c(rhat_max, ess_min, diverg, tdhits, ebfmi),
-    threshold = c(conv$rhat_max, conv$ess_min, conv$divergences, 0, ebfmi_min),
+    check     = c("rhat_max", "ess_min", "divergences", "treedepth_hits", "ebfmi_min",
+                  "constant_quantities_excluded"),
+    value     = c(rhat_max, ess_min, diverg, tdhits, ebfmi, sum(!varying)),
+    threshold = c(conv$rhat_max, conv$ess_min, conv$divergences, 0, ebfmi_min, NA),
     pass      = c(rhat_max <= conv$rhat_max, ess_min >= conv$ess_min,
-                  diverg <= conv$divergences, tdhits == 0, ebfmi >= ebfmi_min)
+                  diverg <= conv$divergences, tdhits == 0, ebfmi >= ebfmi_min, TRUE)
   )
 }
 

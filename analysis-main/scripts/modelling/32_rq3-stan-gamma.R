@@ -5,8 +5,8 @@
 #   Fits the Gamma-only model for RQ3 (certainty-equivalent welfare loss from
 #   suboptimal betting) for every treatment and sample.
 #   Gamma distribution for the strictly positive welfare losses, without a
-#   hurdle. Preregistered for samples in which zero losses are rare (model-
-#   implied probability of a zero loss below 0.05 in the hurdle-Gamma
+#   hurdle. A robustness check for samples in which zero losses are rare
+#   (model-implied probability of a zero loss below 0.05 in the hurdle-Gamma
 #   model); trials with a zero loss are not used.
 #   The script reports convergence and sample-size checks and takes no
 #   action on them: which RQ3 model is used is decided by selecting its

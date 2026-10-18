@@ -2,10 +2,10 @@
   // RQ3: Certainty-equivalent welfare loss (Gamma-only)
 // y_t = Δc_is / e, strictly positive
 //
-  // Used when the model-implied probability of a zero loss is negligible
-// (below 0.05) in the hurdle-Gamma model, so that essentially all welfare
-// losses are strictly positive and a hurdle is not warranted. Fitted to the
-// trials with a positive loss only.
+// Robustness check for samples in which the model-implied probability of a
+// zero loss is negligible (below 0.05) in the hurdle-Gamma model, so that
+// essentially all welfare losses are strictly positive. Fitted to the trials
+// with a positive loss only.
 //
   // positive part only:
   //   y | y > 0 ~ Gamma(shape, rate = shape / mu_is)

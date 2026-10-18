@@ -4,11 +4,13 @@
 # PURPOSE
 #   Fits the hurdle-Gamma model for RQ3 (certainty-equivalent welfare loss from
 #   suboptimal betting) for every treatment and sample.
-#   The preregistered primary model: zero welfare losses (expected-utility
-#   optimal bets) are modelled by a hurdle with participant and sequence
-#   effects, positive losses by a Gamma distribution. The model-implied mean
-#   probability of a zero loss is written to hurdle-summary.csv; below 0.05
-#   the preregistered rule prefers the Gamma-only model (32_rq3-stan-gamma.R).
+#   The preregistered primary model, used in every sample: zero welfare losses
+#   (expected-utility optimal bets) are modelled by a hurdle with participant
+#   and sequence effects, positive losses by a Gamma distribution. The model-
+#   implied mean probability of a zero loss is written to hurdle-summary.csv,
+#   which shows whether the hurdle is negligible (below 0.05) or substantial
+#   in the sample. The Gamma-only model (32_rq3-stan-gamma.R) is a robustness
+#   check for samples in which zero losses are rare.
 #   The script reports convergence and sample-size checks and takes no
 #   action on them: which RQ3 model is used is decided by selecting its
 #   folder under the key "rq3" in selected-models.csv.

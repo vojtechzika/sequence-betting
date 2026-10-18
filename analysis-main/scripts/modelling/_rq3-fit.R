@@ -32,7 +32,7 @@
 #   hurdle_gamma  y = 0 with probability pi0 (logit-linear in participant
 #                 and sequence effects); otherwise Gamma with log-linear mean
 #   gamma         Gamma on the strictly positive losses only; trials with
-#                 y = 0 are not used. Appropriate when zero losses are rare
+#                 y = 0 are not used. A robustness check for samples with few zeros
 #   gaussian      Normal on y; diagnostic alternative
 #
 # OUTPUT (model folder path_mod/<folder>/)
@@ -52,8 +52,8 @@
 #     its definition before any trials are dropped (the gamma likelihood
 #     fits the positive losses only; their number is stored in the data file)
 #   - The hurdle summary compares the model-implied mean probability of a
-#     zero loss with the preregistered threshold of 0.05, below which the
-#     Gamma-only likelihood is preferred. It is a summary, not a pass/fail check
+#     zero loss with a threshold of 0.05, below which the hurdle is negligible.
+#     It is a summary, not a pass/fail check
 # ============================================================
 
 rq3_fit <- function(cfg, spec) {
