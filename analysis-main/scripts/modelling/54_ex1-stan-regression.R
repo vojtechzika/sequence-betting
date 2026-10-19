@@ -17,6 +17,14 @@
 #   from every fit). Each fit is a separate Stan run, so convergence is
 #   assessed for every fit and summarised in diagnostics.csv.
 #
+#   A draw in which chi_i is constant across participants (in practice zero
+#   for every participant, when the similarity weights of the anchors
+#   coincide) has no proper posterior under the registered model: the
+#   likelihood is unbounded as sigma approaches zero. Such a draw is not
+#   fitted. It enters the pooled posterior with equal weight as the
+#   limiting solution (alpha equal to the constant, all slopes and sigma
+#   zero), and the number of such draws is reported in diagnostics.csv.
+#
 # SAMPLE
 #   Participants of the RQ4 fit (rq4-full) with complete covariates
 #   (LOT-R, response time, r). The number of complete cases is checked
@@ -33,9 +41,11 @@
 # OUTPUT (model folder path_mod/ex1-regression/)
 #   pooled-<tr>.rds             list(pooled [draws x parameters], t_idx, N, Trep,
 #                               covariates [pid, lotr_score, rt_log_mean, r_mean])
-#   fit-diagnostics-<tr>.csv    Rhat, ESS and divergences of every fit
-#   diagnostics.csv             convergence summarised over the fits, and the
-#                               number of complete cases
+#   fit-diagnostics-<tr>.csv    Rhat, ESS and divergences of every fit, and
+#                               whether the draw was degenerate (not fitted)
+#   diagnostics.csv             convergence summarised over the fitted draws,
+#                               the number of degenerate draws and the number
+#                               of complete cases
 #   inputs.csv, run-info.txt
 #
 # NOTES
@@ -45,7 +55,8 @@
 #     cfg$design$ex1$eps)
 #   - A fit meets the criteria if Rhat <= rhat_max, ESS >= ess_min and there
 #     are no divergent transitions (cfg$model$convergence); the check reports
-#     the number of fits that do not
+#     the number of fitted draws that do not. Degenerate draws are not fitted
+#     and are excluded from these summaries
 #   - Fit j uses seed + j; the set of draws is sampled with cfg$run$seed
 # ============================================================
 
@@ -124,8 +135,25 @@ ex1_stan_regression <- function(cfg) {
     pooled   <- vector("list", Trep)
 
     for (j in seq_len(Trep)) {
+      yj <- as.vector(y_rep[j, ])
+
+      # Degenerate draw: chi_i is the same for every participant, so the
+      # regression has no proper posterior (the likelihood is unbounded as
+      # sigma -> 0). The draw is not fitted; it contributes the limiting
+      # solution to the pool with the same weight as a fitted draw.
+      if (diff(range(yj)) < 1e-10) {
+        fit_diag[[j]] <- data.table(
+          fit = j, draw_index = t_idx[j], degenerate = TRUE,
+          rhat_max = NA_real_, ess_min = NA_real_, divergences = NA_integer_)
+        pooled[[j]] <- matrix(0, nrow = keep_per_fit, ncol = length(par_names),
+                              dimnames = list(NULL, par_names))
+        pooled[[j]][, "alpha"] <- mean(yj)
+        if (j %% 20L == 0L || j == Trep) msg("EX1 regression: ", tr, " fit ", j, "/", Trep)
+        next
+      }
+
       fit <- rstan::sampling(
-        sm, data = list(N = N, y = as.vector(y_rep[j, ]), Zopt = Zopt, Zrt = Zrt, Zr = Zr),
+        sm, data = list(N = N, y = yj, Zopt = Zopt, Zrt = Zrt, Zr = Zr),
         iter = st$iter, warmup = st$warmup, chains = st$chains, seed = seed + j,
         refresh = 0, show_messages = FALSE,
         control = list(adapt_delta = st$adapt_delta, max_treedepth = st$treedepth)
@@ -133,7 +161,7 @@ ex1_stan_regression <- function(cfg) {
       summ <- rstan::summary(fit, pars = par_names)$summary
       sp   <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
       fit_diag[[j]] <- data.table(
-        fit = j, draw_index = t_idx[j],
+        fit = j, draw_index = t_idx[j], degenerate = FALSE,
         rhat_max = max(summ[, "Rhat"], na.rm = TRUE),
         ess_min = min(summ[, "n_eff"], na.rm = TRUE),
         divergences = as.integer(sum(vapply(sp, function(x) sum(x[, "divergent__"]), numeric(1)))))
@@ -146,8 +174,10 @@ ex1_stan_regression <- function(cfg) {
     }
 
     fd <- rbindlist(fit_diag)
-    fd[, meets_criteria := rhat_max <= conv$rhat_max & ess_min >= conv$ess_min &
-                           divergences <= conv$divergences]
+    fd[, meets_criteria := NA]
+    fd[degenerate == FALSE, meets_criteria := rhat_max <= conv$rhat_max &
+                                              ess_min >= conv$ess_min &
+                                              divergences <= conv$divergences]
     fwrite(fd, file.path(run, paste0("fit-diagnostics-", tr, ".csv")))
 
     saveRDS(list(pooled = do.call(rbind, pooled), t_idx = t_idx, N = N, Trep = Trep,
@@ -158,14 +188,15 @@ ex1_stan_regression <- function(cfg) {
     diag[[tr]] <- data.table(
       tag = tag, treatment = tr, sample = "full",
       check = c("rhat_max_over_fits", "ess_min_over_fits", "divergences_total",
-                "fits_not_meeting_criteria", "complete_cases"),
-      value = c(max(fd$rhat_max), min(fd$ess_min), sum(fd$divergences),
-                sum(!fd$meets_criteria), N),
-      threshold = c(conv$rhat_max, conv$ess_min, conv$divergences, 0, length(pid_levels))
+                "fits_not_meeting_criteria", "complete_cases", "degenerate_draws"),
+      value = c(max(fd$rhat_max, na.rm = TRUE), min(fd$ess_min, na.rm = TRUE),
+                sum(fd$divergences, na.rm = TRUE), sum(fd$meets_criteria == FALSE, na.rm = TRUE),
+                N, sum(fd$degenerate)),
+      threshold = c(conv$rhat_max, conv$ess_min, conv$divergences, 0, length(pid_levels), NA)
     )
     diag[[tr]][, pass := c(value[1] <= threshold[1], value[2] >= threshold[2],
                            value[3] <= threshold[3], value[4] == threshold[4],
-                           value[5] == threshold[5])]
+                           value[5] == threshold[5], TRUE)]
   }
 
   write_diagnostics(run, rbindlist(diag))

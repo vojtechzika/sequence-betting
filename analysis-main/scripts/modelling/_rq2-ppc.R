@@ -36,7 +36,8 @@
 #     repeated symbol); a sample without a pure sequence skips pure_contrast
 #   - p-values: P(replicate >= observed) for one-sided statistics; twice the
 #     smaller tail probability for the two-sided statistic. A check passes
-#     if p >= 1 - cut
+#     if p >= 1 - cut (compared after rounding to 10 decimals, so that a
+#     p-value equal to the cut passes)
 # ============================================================
 
 rq2_ppc_stats <- function(fit, d, pid_levels, seq_levels, include_drift, e,
@@ -108,7 +109,7 @@ rq2_ppc_stats <- function(fit, d, pid_levels, seq_levels, include_drift, e,
       rep_median = median(r), rep_q025 = unname(quantile(r, 0.025)),
       rep_q975 = unname(quantile(r, 0.975)),
       ratio = obs[[s]] / median(r), n_rep = K_use, p_value = p,
-      threshold = 1 - cut, pass = p >= (1 - cut)
+      threshold = 1 - cut, pass = round(p, 10) >= round(1 - cut, 10)
     )
   }))
 

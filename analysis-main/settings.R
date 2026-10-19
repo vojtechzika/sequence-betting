@@ -79,7 +79,7 @@ settings <- list(
         # Beta-Binomial concentration: HalfNormal(0, phi_sd)
         prior = list(alpha_sd = 1, sigma_u_sd = 1, sigma_s_sd = 1, sigma_v_sd = 1,
                      alpha_omega_sd = 1.5, phi_sd = 5),
-        iter = 8000, warmup = 2000, chains = 4, adapt_delta = 0.95, treedepth = 12
+        iter = 12000, warmup = 2000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       rq2_one_inflated_seq = list(
@@ -99,7 +99,7 @@ settings <- list(
       ),
       
       rq3_gaussian = list(
-        iter = 8000, warmup = 1000, chains = 4, adapt_delta = 0.97, treedepth = 13
+        iter = 20000, warmup = 2000, chains = 4, adapt_delta = 0.97, treedepth = 13
       ),
       
       

@@ -42,7 +42,22 @@
 #   diagnostics.csv              convergence and sample-size checks
 #   hurdle-summary.csv           (hurdle_gamma only) model-implied mean
 #                                zero-loss probability and the observed share
+#   ppc-summary.csv, ppc-<tr>-<sample>.png
+#                                (hurdle_gamma and gamma only) supplementary
+#                                posterior predictive check of the loss
+#                                distribution, see below
 #   inputs.csv, run-info.txt
+#
+# POSTERIOR PREDICTIVE CHECK (hurdle_gamma and gamma)
+#   Losses are replicated at the observed trials from cfg$model$ppc$rq3_k
+#   posterior draws (participant and sequence effects as fitted) and the
+#   replicated distribution is compared with the observed one. Statistics:
+#   share of zero losses and mean loss over all trials (hurdle_gamma only),
+#   and the mean, SD, 90th, 95th and 99th percentiles and maximum of the
+#   positive losses. The statistics are not preregistered. The p-value is
+#   twice the smaller tail probability, and the check passes if
+#   p >= 1 - cfg$design$rq3$ppc_cut. For the gamma likelihood the check
+#   concerns the strictly positive losses to which the model is fitted.
 #
 # NOTES
 #   - The model folder is built as <folder>.tmp and renamed when complete;
@@ -100,6 +115,99 @@ rq3_fit <- function(cfg, spec) {
     paste0(prefix, "-", tr, "-", tag, ".", ext)
 
   hurdle_rows <- list()
+  ppc_list    <- list()
+
+  ppc_cut <- as.numeric(design$rq3$ppc_cut)
+  stopifnot(length(ppc_cut) == 1L, is.finite(ppc_cut), ppc_cut > 0, ppc_cut < 1)
+
+  # Posterior predictive check of the loss distribution (see header)
+  rq3_ppc <- function(fit, d_fit, y_fit, include_drift, tr, sample) {
+
+    hurdle <- spec$likelihood == "hurdle_gamma"
+    post   <- rstan::extract(fit, pars = c("ap", "up", "bp", "shape", "gamma_drift",
+                                            if (hurdle) c("a0", "u0", "b0")))
+    K_all  <- length(post$ap)
+    K_use  <- min(as.integer(cfg$model$ppc$rq3_k), K_all)
+    set.seed(seed + 4001L)
+    k_idx  <- sort(sample.int(K_all, K_use))
+
+    pid_i <- d_fit$pid_i
+    sid_s <- d_fit$sid_s
+    Tn    <- nrow(d_fit)
+
+    labels <- c(zero_share = "Share of zero losses",
+                mean_all   = "Mean loss, all trials",
+                mean_pos   = "Mean positive loss",
+                sd_pos     = "SD of positive losses",
+                q90_pos    = "90th percentile, positive losses",
+                q95_pos    = "95th percentile, positive losses",
+                q99_pos    = "99th percentile, positive losses",
+                max_pos    = "Largest loss")
+    stat_names <- c(if (hurdle) c("zero_share", "mean_all"),
+                    "mean_pos", "sd_pos", "q90_pos", "q95_pos", "q99_pos", "max_pos")
+
+    stats_of <- function(v) {
+      pos <- v[v > 0]
+      q   <- unname(quantile(pos, c(0.90, 0.95, 0.99)))
+      c(zero_share = mean(v <= 0), mean_all = mean(v), mean_pos = mean(pos),
+        sd_pos = sd(pos), q90_pos = q[1], q95_pos = q[2], q99_pos = q[3],
+        max_pos = max(pos))[stat_names]
+    }
+
+    obs <- stats_of(y_fit)
+
+    rep <- t(vapply(k_idx, function(k) {
+      eta <- post$ap[k] + post$up[k, pid_i] + post$bp[k, sid_s]
+      if (include_drift) eta <- eta + post$gamma_drift[k] * d_fit$block_c
+      v <- rgamma(Tn, shape = post$shape[k], rate = post$shape[k] / exp(eta))
+      if (hurdle) {
+        pi0 <- plogis(post$a0[k] + post$u0[k, pid_i] + post$b0[k, sid_s])
+        v[runif(Tn) < pi0] <- 0
+      }
+      stats_of(v)
+    }, numeric(length(stat_names))))
+
+    tbl <- rbindlist(lapply(stat_names, function(st_nm) {
+      r    <- rep[, st_nm]
+      p    <- min(1, 2 * min(mean(r >= obs[[st_nm]]), mean(r <= obs[[st_nm]])))
+      rmed <- median(r)
+      data.table(
+        treatment = tr, sample = sample, statistic = st_nm, label = labels[[st_nm]],
+        preregistered = FALSE, observed = obs[[st_nm]], rep_median = rmed,
+        rep_q025 = unname(quantile(r, 0.025)), rep_q975 = unname(quantile(r, 0.975)),
+        ratio = if (rmed > 0) obs[[st_nm]] / rmed else NA_real_,
+        n_rep = K_use, p_value = p, threshold = 1 - ppc_cut,
+        pass = round(p, 10) >= round(1 - ppc_cut, 10)
+      )
+    }))
+
+    lev  <- unname(labels[stat_names])
+    long <- rbindlist(lapply(stat_names, function(st_nm)
+      data.table(label = labels[[st_nm]], v = rep[, st_nm])))
+    long[, label := factor(label, levels = lev)]
+    ann <- data.table(label = factor(tbl$label, levels = lev), v = tbl$observed,
+                      txt = ifelse(tbl$p_value < 1 / K_use, sprintf("p < %.3f", 1 / K_use),
+                                   sprintf("p = %.3f", tbl$p_value)))
+    sample_lab <- paste0(c(m25 = "FN", m19 = "FP")[[tr]], " ", sample)
+    g <- ggplot(long, aes(x = v)) +
+      geom_density(fill = "#74ADD1", alpha = 0.5, colour = "#2166AC", linewidth = 0.7) +
+      geom_vline(data = ann, aes(xintercept = v), colour = "#C0392B",
+                 linewidth = 0.8, linetype = "dashed") +
+      geom_text(data = ann, aes(label = txt), x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
+                size = 3, colour = "grey30", inherit.aes = FALSE) +
+      facet_wrap(~label, scales = "free", nrow = 2) +
+      labs(title = paste0("RQ3 ", spec$desc, ", posterior predictive check: ", sample_lab),
+           x = NULL, y = "Density") +
+      theme_classic(base_size = 10) +
+      theme(strip.background = element_blank(), strip.text = element_text(size = 8.5),
+            axis.title.y = element_text(size = 8.5),
+            panel.grid.major.x = element_line(colour = "grey92", linewidth = 0.25),
+            plot.title = element_text(size = 11), plot.margin = margin(4, 8, 4, 4))
+    ggsave(file.path(run, stem("ppc", tr, sample, "png")), g,
+           width = 11, height = 6.5, dpi = 300)
+
+    tbl
+  }
 
   # ---- Fit one sample ----
   fit_one <- function(tr, sample) {
@@ -180,7 +288,16 @@ rq3_fit <- function(cfg, spec) {
       )
     }
 
-    rbind(conv, size)
+    ppc_rows <- NULL
+    if (spec$likelihood %in% c("hurdle_gamma", "gamma")) {
+      ppc_tbl <- rq3_ppc(fit, d_fit, y_fit, as.logical(include_drift), tr, sample)
+      ppc_list[[paste(tr, sample)]] <<- ppc_tbl
+      ppc_rows <- ppc_tbl[, .(tag = paste(tr, sample, sep = "_"), treatment, sample,
+                              check = paste0("ppc_", statistic, "_p"),
+                              value = p_value, threshold, pass)]
+    }
+
+    rbind(conv, size, ppc_rows, fill = TRUE)
   }
 
   # ---- Samples: full for each treatment, then confirmatory ----
@@ -193,6 +310,8 @@ rq3_fit <- function(cfg, spec) {
 
   if (length(hurdle_rows) > 0L)
     fwrite(rbindlist(hurdle_rows), file.path(run, "hurdle-summary.csv"))
+  if (length(ppc_list) > 0L)
+    fwrite(rbindlist(ppc_list), file.path(run, "ppc-summary.csv"))
 
   # ---- Diagnostics (written last: marks the run as complete) ----
   write_diagnostics(run, rbindlist(diag))

@@ -201,7 +201,7 @@ rq2_stan_gaussian <- function(cfg) {
       rep_q025 = unname(quantile(allin_rep, 0.025)),
       rep_q975 = unname(quantile(allin_rep, 0.975)),
       ratio = allin_obs / median(allin_rep),
-      n_rep = K_use, p_value = p_allin, threshold = 1 - cut, pass = p_allin >= (1 - cut)
+      n_rep = K_use, p_value = p_allin, threshold = 1 - cut, pass = round(p_allin, 10) >= round(1 - cut, 10)
     )
   }
   

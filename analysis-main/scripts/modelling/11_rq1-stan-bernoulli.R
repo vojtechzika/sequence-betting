@@ -179,7 +179,7 @@ rq1_stan_bernoulli <- function(cfg) {
         preregistered = (s == "seqvar"),
         observed = obs[[s]], rep_median = median(r),
         rep_q025 = unname(quantile(r, 0.025)), rep_q975 = unname(quantile(r, 0.975)),
-        n_rep = K_use, p_value = p, threshold = 1 - cut, pass = p >= (1 - cut)
+        n_rep = K_use, p_value = p, threshold = 1 - cut, pass = round(p, 10) >= round(1 - cut, 10)
       )
     }))
     

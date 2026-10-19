@@ -14,6 +14,13 @@
 #     - the share of sequences on the same side of the grand mean,
 #     - the largest absolute difference between the sequence means,
 #     - the model-implied mean probability of a zero loss in the sample.
+#   For the sequences that the reference model places above or below the grand
+#   mean with at least 95% posterior probability (the rule of 31_rq3-tables.R),
+#   the script also reports how many keep the same side and the same class under
+#   the comparator, how many pure sequences (one symbol repeated) are classed as
+#   above the grand mean by each model, and how many of the five sequences with
+#   the highest median loss the two models share. The estimates and classes of
+#   every sequence are written to a second file.
 #
 # INTERPRETATION
 #   The sequence mean mu_c is the unconditional mean loss, zeros included, in
@@ -37,6 +44,10 @@
 # OUTPUT
 #   data/output/csv/rq3-likelihood-comparison.csv
 #       one row per treatment, sample and comparator
+#   data/output/csv/rq3-likelihood-comparison-sequences.csv
+#       one row per treatment, sample, comparator and sequence: median and 95%
+#       interval of the sequence mean under the reference and the comparator,
+#       probability of exceeding the grand mean, and the class of each model
 #
 # NOTES
 #   - Samples without fits in all three folders are skipped
@@ -69,7 +80,28 @@ rq3_likelihood_comparison <- function(cfg) {
     d[upper.tri(d)]
   }
 
-  rows <- list()
+  # Probability that a sequence mean exceeds / falls below the grand mean of the
+  # same draw, and the class derived from it (thresholds of 31_rq3-tables.R)
+  p_above <- function(mu) {
+    g <- rowMeans(mu)
+    apply(mu, 2, function(x) mean(x > g))
+  }
+  p_below <- function(mu) {
+    g <- rowMeans(mu)
+    apply(mu, 2, function(x) mean(x < g))
+  }
+  classify <- function(mu) {
+    pa <- p_above(mu)
+    pb <- p_below(mu)
+    fifelse(pa >= 0.95, "above",
+    fifelse(pa >= 0.80, "likely_above",
+    fifelse(pb >= 0.95, "below",
+    fifelse(pb >= 0.80, "likely_below", "neutral"))))
+  }
+  top5 <- function(m) order(m, decreasing = TRUE)[1:5]
+
+  rows     <- list()
+  seq_rows <- list()
   for (tr in tr_vec) for (smp in samples) {
 
     ref <- get_fit(ref_folder, tr, smp)
@@ -84,6 +116,35 @@ rq3_likelihood_comparison <- function(cfg) {
       m_alt <- colMeans(alt$mu)
       g_ref <- rowMeans(ref$mu)
       g_alt <- rowMeans(alt$mu)
+
+      # Sequence-level classes under the reference and the comparator
+      seq_chr <- as.character(ref$seq)
+      is_pure <- !grepl("H", seq_chr) | !grepl("T", seq_chr)
+      lab_ref <- classify(ref$mu)
+      lab_alt <- classify(alt$mu)
+      pa_ref  <- p_above(ref$mu)
+      pa_alt  <- p_above(alt$mu)
+      med_ref <- apply(ref$mu, 2, median)
+      med_alt <- apply(alt$mu, 2, median)
+      flagged <- lab_ref %in% c("above", "below")
+
+      seq_rows[[length(seq_rows) + 1L]] <- data.table(
+        treatment  = tr,
+        sample     = smp,
+        comparator = cmp,
+        sequence   = seq_chr,
+        pure       = is_pure,
+        ref_median = med_ref,
+        ref_q025   = apply(ref$mu, 2, quantile, probs = 0.025),
+        ref_q975   = apply(ref$mu, 2, quantile, probs = 0.975),
+        comp_median = med_alt,
+        comp_q025  = apply(alt$mu, 2, quantile, probs = 0.025),
+        comp_q975  = apply(alt$mu, 2, quantile, probs = 0.975),
+        ref_p_above_grand  = pa_ref,
+        comp_p_above_grand = pa_alt,
+        ref_class  = lab_ref,
+        comp_class = lab_alt
+      )
 
       rows[[length(rows) + 1L]] <- data.table(
         treatment         = tr,
@@ -100,7 +161,13 @@ rq3_likelihood_comparison <- function(cfg) {
         spearman_seq      = cor(m_ref, m_alt, method = "spearman"),
         pair_agreement    = mean(pair_dir(m_ref) == pair_dir(m_alt)),
         side_agreement    = mean(sign(m_ref - mean(m_ref)) == sign(m_alt - mean(m_alt))),
-        max_abs_diff_seq  = max(abs(m_ref - m_alt))
+        max_abs_diff_seq  = max(abs(m_ref - m_alt)),
+        n_flagged_ref        = sum(flagged),
+        n_flagged_same_side  = sum(flagged & (pa_ref >= 0.5) == (pa_alt >= 0.5)),
+        n_flagged_same_class = sum(flagged & lab_alt == lab_ref),
+        n_pure_above_ref     = sum(is_pure & lab_ref == "above"),
+        n_pure_above_comp    = sum(is_pure & lab_alt == "above"),
+        top5_shared          = length(intersect(top5(med_ref), top5(med_alt)))
       )
     }
   }
@@ -111,6 +178,10 @@ rq3_likelihood_comparison <- function(cfg) {
   f <- file.path(path_csv, "rq3-likelihood-comparison.csv")
   fwrite(out, f)
   msg("Saved: ", f)
+
+  f_seq_out <- file.path(path_csv, "rq3-likelihood-comparison-sequences.csv")
+  fwrite(rbindlist(seq_rows), f_seq_out)
+  msg("Saved: ", f_seq_out)
 
   invisible(out)
 }

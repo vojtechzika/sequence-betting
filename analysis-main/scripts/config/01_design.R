@@ -77,7 +77,7 @@ design_cfg <- function() {
     # --------------------------------------------------------
     rq1 = list(
       rho = c(0.10, 0.08, 0.12),
-      ppc_cut = 0.95
+      ppc_cut = 0.95   # check passes if P(rep >= obs) >= 1 - ppc_cut (implementation choice; the preregistration gives no numeric cut)
     ),
     
     # --------------------------------------------------------
@@ -96,7 +96,8 @@ design_cfg <- function() {
     # RQ3
     # --------------------------------------------------------
     rq3 = list(
-      rho = c(0.05, 0.03, 0.08)
+      rho = c(0.05, 0.03, 0.08),
+      ppc_cut = 0.95   # supplementary check passes if the two-sided posterior predictive p >= 1 - ppc_cut
     ),
     
     # --------------------------------------------------------
@@ -104,7 +105,7 @@ design_cfg <- function() {
     # --------------------------------------------------------
     rq4 = list(
       rho = c(0.05, 0.03, 0.08),     # first = main (tolerance band around hbar)
-      ppc_overdisp_cut = 0.95        # prereg trigger cutoff for Beta–Binomial robustness
+      ppc_overdisp_cut = 0.95        # trigger cutoff for the Beta–Binomial robustness fit (implementation choice; the preregistration gives no numeric cut)
     ),
     
     # --------------------------------------------------------
