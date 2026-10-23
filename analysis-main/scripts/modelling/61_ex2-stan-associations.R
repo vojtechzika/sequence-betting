@@ -47,6 +47,9 @@
 #   inputs.csv, run-info.txt
 #
 # NOTES
+#   - If the model is listed in cfg$run$prior_sensitivity, a second pass
+#     refits it with the broadened priors (prior_broad in settings.R) and
+#     writes a complete separate folder with the suffix -broad
 #   - The model folder is built as ex2-associations.tmp and renamed when
 #     complete; an existing folder is never overwritten
 #   - The outcome index of the Stan model is fixed (b=1, a=2, c=3, h=4)
@@ -59,8 +62,13 @@ options(mc.cores = parallel::detectCores())
 rstan::rstan_options(auto_write = FALSE)
 
 ex2_stan_associations <- function(cfg) {
+  for (pass in prior_passes(cfg, "ex2")) ex2_stan_associations_pass(cfg, pass)
+  invisible(NULL)
+}
 
-  run <- model_begin("ex2-associations")
+ex2_stan_associations_pass <- function(cfg, pass) {
+
+  run <- model_begin(paste0("ex2-associations", pass$suffix))
   if (is.null(run)) return(invisible(NULL))
 
   seed   <- as.integer(cfg$run$seed)
@@ -142,7 +150,11 @@ ex2_stan_associations <- function(cfg) {
       y_rep = do.call(cbind, lapply(blocks, function(b) b$y[seq_len(Trep_joint), , drop = FALSE])),
       kid = as.integer(kid),
       Zopt = unlist(lapply(blocks, `[[`, "Zopt")),
-      Zrt  = unlist(lapply(blocks, `[[`, "Zrt"))
+      Zrt  = unlist(lapply(blocks, `[[`, "Zrt")),
+      prior_alpha_sd    = as.numeric(pass$prior$alpha_sd),
+      prior_sigma_sd    = as.numeric(pass$prior$sigma_sd),
+      prior_beta_bar_sd = as.numeric(pass$prior$beta_bar_sd),
+      prior_tau_sd      = as.numeric(pass$prior$tau_sd)
     )
     msg("EX2: ", tr, " | Nobs=", data_list$Nobs, " | Trep=", Trep_joint)
 
@@ -169,5 +181,9 @@ ex2_stan_associations <- function(cfg) {
   }
 
   write_diagnostics(run, rbindlist(diag))
-  model_end(run, cfg, settings = c(st, list(ex2_trep = trep0, min_Nk = min_Nk)), key = "ex2")
+  settings_run <- c(st, list(ex2_trep = trep0, min_Nk = min_Nk))
+  if (pass$name != "main")
+    settings_run <- modifyList(settings_run, list(prior = pass$prior, prior_pass = pass$name))
+  model_end(run, cfg, settings = settings_run,
+            key = if (pass$name == "main") "ex2" else NULL)
 }

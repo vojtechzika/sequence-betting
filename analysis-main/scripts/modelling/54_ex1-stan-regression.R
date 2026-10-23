@@ -49,6 +49,9 @@
 #   inputs.csv, run-info.txt
 #
 # NOTES
+#   - If the model is listed in cfg$run$prior_sensitivity, a second pass
+#     refits it with the broadened priors (prior_broad in settings.R) and
+#     writes a complete separate folder with the suffix -broad
 #   - The model folder is built as ex1-regression.tmp and renamed when
 #     complete; an existing folder is never overwritten
 #   - The chi draws are those at the main tolerance (first value of
@@ -64,8 +67,13 @@ options(mc.cores = parallel::detectCores())
 rstan::rstan_options(auto_write = FALSE)
 
 ex1_stan_regression <- function(cfg) {
+  for (pass in prior_passes(cfg, "ex1_regression")) ex1_stan_regression_pass(cfg, pass)
+  invisible(NULL)
+}
 
-  run <- model_begin("ex1-regression")
+ex1_stan_regression_pass <- function(cfg, pass) {
+
+  run <- model_begin(paste0("ex1-regression", pass$suffix))
   if (is.null(run)) return(invisible(NULL))
 
   seed   <- as.integer(cfg$run$seed)
@@ -153,7 +161,10 @@ ex1_stan_regression <- function(cfg) {
       }
 
       fit <- rstan::sampling(
-        sm, data = list(N = N, y = yj, Zopt = Zopt, Zrt = Zrt, Zr = Zr),
+        sm, data = list(N = N, y = yj, Zopt = Zopt, Zrt = Zrt, Zr = Zr,
+                        prior_alpha_sd = as.numeric(pass$prior$alpha_sd),
+                        prior_b_sd = as.numeric(pass$prior$b_sd),
+                        prior_sigma_sd = as.numeric(pass$prior$sigma_sd)),
         iter = st$iter, warmup = st$warmup, chains = st$chains, seed = seed + j,
         refresh = 0, show_messages = FALSE,
         control = list(adapt_delta = st$adapt_delta, max_treedepth = st$treedepth)
@@ -200,5 +211,9 @@ ex1_stan_regression <- function(cfg) {
   }
 
   write_diagnostics(run, rbindlist(diag))
-  model_end(run, cfg, settings = c(st, list(ex1_trep = Trep0)), key = "ex1-regression")
+  settings_run <- c(st, list(ex1_trep = Trep0))
+  if (pass$name != "main")
+    settings_run <- modifyList(settings_run, list(prior = pass$prior, prior_pass = pass$name))
+  model_end(run, cfg, settings = settings_run,
+            key = if (pass$name == "main") "ex1-regression" else NULL)
 }

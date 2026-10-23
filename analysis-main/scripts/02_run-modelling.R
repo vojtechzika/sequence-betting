@@ -17,9 +17,15 @@ run_modelling <- function(cfg) {
   # change in the MPL fit invalidates flags, drift decisions and samples
   # together.
   
+  
+
   # primary preregistered model specification
   source(here::here("scripts", "modelling", "01_mpl-stan-bernoulli.R"))
-  mpl_stan_bernoulli(cfg)       
+  mpl_stan_bernoulli(cfg)   
+  
+  # alternative: hierarchical (partially pooled) Holt-Laury model, robustness for the full samples
+  source(here::here("scripts", "modelling", "02_mpl-stan-hierarchical.R"))
+  mpl_stan_hierarchical(cfg)
   
   # draw a* for the selected model, produce participant flags
   source(here::here("scripts", "modelling", "07_a-star-draws.R"))

@@ -83,7 +83,8 @@ rq3_tables <- function(cfg) {
   # ---- Labels from the probability of a loss above rho ----
   label_by <- function(L, cuts, names) {
     lab <- rep("neutral", length(L))
-    for (k in rev(seq_along(cuts))) lab[L >= cuts[k]] <- names[k]
+    # cuts ascending: later (higher) cut-offs overwrite earlier ones
+    for (k in seq_along(cuts)) lab[L >= cuts[k]] <- names[k]
     lab
   }
   seq_labels <- function(L) label_by(L, c(0.50, 0.80, 0.95), c("weak", "moderate", "strong"))

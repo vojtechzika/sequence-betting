@@ -14,8 +14,8 @@
 //   b_s ~ Normal(0, sigma_s) with sum-to-zero via centering
 //
 // Priors:
-//   alpha ~ Normal(0, 1)
-//   sigma, sigma_u, sigma_s ~ HalfNormal(0, 1)
+//   alpha ~ Normal(0, prior_alpha_sd)
+//   sigma_u, sigma_s, sigma ~ HalfNormal(0, prior_sigma_u_sd), HalfNormal(0, prior_sigma_s_sd), HalfNormal(0, prior_sigma_sd)
 //   gamma_drift ~ Normal(0, prior_gamma_sd)
 //
 // Generated quantities (evaluated at block_c = 0):
@@ -33,6 +33,10 @@ data {
   int<lower=0,upper=1> include_drift;
   vector[T] block_c;
   real<lower=0> prior_gamma_sd;
+  real<lower=0> prior_alpha_sd;     // prior SD of the intercept
+  real<lower=0> prior_sigma_u_sd;   // prior scale of the participant SD
+  real<lower=0> prior_sigma_s_sd;   // prior scale of the sequence SD
+  real<lower=0> prior_sigma_sd;     // prior scale of the residual SD
 }
 parameters {
   real alpha;
@@ -48,10 +52,10 @@ transformed parameters {
   vector[S] b = sigma_s * (b_raw - mean(b_raw));
 }
 model {
-  alpha       ~ normal(0, 1);
-  sigma_u     ~ normal(0, 1);
-  sigma_s     ~ normal(0, 1);
-  sigma       ~ normal(0, 1);
+  alpha       ~ normal(0, prior_alpha_sd);
+  sigma_u     ~ normal(0, prior_sigma_u_sd);
+  sigma_s     ~ normal(0, prior_sigma_s_sd);
+  sigma       ~ normal(0, prior_sigma_sd);
   u_raw       ~ normal(0, 1);
   b_raw       ~ normal(0, 1);
   gamma_drift ~ normal(0, prior_gamma_sd);

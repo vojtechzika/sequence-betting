@@ -36,6 +36,13 @@
 // not captured by the cues.
 //
 // Additive specification (no run x imbalance interaction).
+//
+// Optional linear drift in the betting equation (include_drift = 1):
+//   gamma_drift * block_c, block_c in {-1.5, -0.5, 0.5, 1.5},
+//   gamma_drift ~ Normal(0, prior_gamma_sd)
+// It is included when the drift check selects it for betting in the sample
+// (08_drift-check.R). When include_drift = 0, gamma_drift is sampled from
+// its prior and not used. Side choice has no drift term.
 // ============================================================
 
 data {
@@ -49,6 +56,9 @@ data {
   vector<lower=0, upper=1>[N] imb_mag;   // unsigned imbalance magnitude
   vector<lower=0, upper=1>[N] run_dum;   // terminal-run presence dummy
   array[N] int<lower=0, upper=1> bet;
+  int<lower=0, upper=1> include_drift;   // 1 = linear drift in the betting equation
+  vector[N] block_c;                     // centered block index
+  real<lower=0> prior_gamma_sd;          // prior SD of the drift coefficient
 
   // -------- side choice | bet == 1, N_bet rows --------
   int<lower=0> N_bet;
@@ -70,6 +80,7 @@ data {
 parameters {
   vector[3] beta_bet;                // [intercept, run slope, imbalance slope]
   vector[3] beta_side;                // [intercept, run slope, imbalance slope]
+  real gamma_drift;                  // betting drift; sampled from its prior when unused
 
   vector<lower=0>[6] tau;            // participant-level RE scales
   cholesky_factor_corr[6] L_Omega;   // participant-level RE correlation (Cholesky)
@@ -91,6 +102,7 @@ model {
   // ---- priors ----
   beta_bet  ~ normal(0, prior_beta_sd);
   beta_side ~ normal(0, prior_beta_sd);
+  gamma_drift ~ normal(0, prior_gamma_sd);
   tau       ~ student_t(3, 0, prior_tau_scale);
   L_Omega   ~ lkj_corr_cholesky(prior_lkj_eta);
   to_vector(z) ~ std_normal();
@@ -107,6 +119,7 @@ model {
       eta_bet[n] = beta_bet[1] + u[1, pid[n]] + v_bet[sid[n]]
                  + (beta_bet[2] + u[2, pid[n]]) * run_dum[n]
                  + (beta_bet[3] + u[3, pid[n]]) * imb_mag[n];
+      if (include_drift) eta_bet[n] += gamma_drift * block_c[n];
     }
     bet ~ bernoulli_logit(eta_bet);
 

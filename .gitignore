@@ -5,6 +5,12 @@
 analysis-main/data/
 
 
+
+
+# manuscript sources
+tex-main/
+tex-supplement/
+
 # =====================================================
 # Python / packaging
 # =====================================================

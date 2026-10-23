@@ -57,6 +57,9 @@
 # NOTES
 #   - The model folder is built as rq1-bernoulli.tmp and renamed when
 #     complete; an existing folder is never overwritten
+#   - If "rq1_bernoulli" is in cfg$run$prior_sensitivity, the model is fitted
+#     a second time with the priors of prior_broad (settings.R) into
+#     rq1-bernoulli-broad; this folder is not selected in selected-models.csv
 #   - Convergence criteria are cfg$model$convergence
 #   - The model key "mpl" is resolved through selected-models.csv
 # ============================================================
@@ -64,9 +67,16 @@
 options(mc.cores = parallel::detectCores())
 rstan::rstan_options(auto_write = FALSE)
 
+# Main pass and, if "rq1_bernoulli" is in cfg$run$prior_sensitivity, the pass
+# with the broadened priors (prior_broad), written to rq1-bernoulli-broad
 rq1_stan_bernoulli <- function(cfg) {
+  for (pass in prior_passes(cfg, "rq1_bernoulli")) rq1_stan_bernoulli_pass(cfg, pass)
+  invisible(NULL)
+}
+
+rq1_stan_bernoulli_pass <- function(cfg, pass) {
   
-  run <- model_begin("rq1-bernoulli")
+  run <- model_begin(paste0("rq1-bernoulli", pass$suffix))
   if (is.null(run)) return(invisible(NULL))
   
   seed   <- as.integer(cfg$run$seed)
@@ -86,7 +96,7 @@ rq1_stan_bernoulli <- function(cfg) {
   adapt_delta_val <- as.numeric(st$adapt_delta)
   treedepth_val   <- as.integer(st$treedepth)
   
-  pr <- st$prior
+  pr <- pass$prior
   stopifnot(!is.null(pr), all(c("alpha_sd", "sigma_u_sd", "sigma_s_sd") %in% names(pr)),
             all(vapply(pr[c("alpha_sd", "sigma_u_sd", "sigma_s_sd")],
                        function(x) length(x) == 1L && is.finite(x) && x > 0, logical(1))))
@@ -285,5 +295,7 @@ rq1_stan_bernoulli <- function(cfg) {
   # ---- Diagnostics (written last: marks the run as complete) ----
   write_diagnostics(run, rbindlist(lapply(results, `[[`, "diag")))
   
-  model_end(run, cfg, settings = st, key = "rq1")
+  # The broad pass records the broadened priors and is never offered for selection
+  settings_run <- if (pass$name == "main") st else modifyList(st, list(prior = pr, prior_pass = pass$name))
+  model_end(run, cfg, settings = settings_run, key = if (pass$name == "main") "rq1" else NULL)
 }

@@ -22,12 +22,12 @@
 //   beta_rt_k  = beta_rt_bar  + tau_rt  * beta_rt_raw[k]
 //
 // Priors (weakly informative, per preregistration):
-//   alpha_k      ~ Normal(0, 1)
-//   sigma_k      ~ HalfNormal(0, 1)    [implied by lower=0 + normal(0,1)]
-//   beta_opt_bar ~ Normal(0, 1)
-//   beta_rt_bar  ~ Normal(0, 1)
-//   tau_opt      ~ HalfNormal(0, 0.5)
-//   tau_rt       ~ HalfNormal(0, 0.5)
+//   alpha_k      ~ Normal(0, prior_alpha_sd)
+//   sigma_k      ~ HalfNormal(0, prior_sigma_sd)    [implied by lower=0 + normal]
+//   beta_opt_bar ~ Normal(0, prior_beta_bar_sd)
+//   beta_rt_bar  ~ Normal(0, prior_beta_bar_sd)
+//   tau_opt      ~ HalfNormal(0, prior_tau_sd)
+//   tau_rt       ~ HalfNormal(0, prior_tau_sd)
 //   beta_opt_raw ~ Normal(0, 1)
 //   beta_rt_raw  ~ Normal(0, 1)
 //
@@ -47,6 +47,10 @@ data {
   array[Nobs] int<lower=1,upper=K> kid;   // outcome id per observation
   vector[Nobs]                    Zopt;    // z-scored LOT-R optimism
   vector[Nobs]                    Zrt;     // z-scored log response time
+  real<lower=0> prior_alpha_sd;      // prior SD of the outcome intercepts
+  real<lower=0> prior_sigma_sd;      // prior scale of the residual SDs (half-normal)
+  real<lower=0> prior_beta_bar_sd;   // prior SD of the pooled slopes
+  real<lower=0> prior_tau_sd;        // prior scale of the between-outcome slope SDs (half-normal)
 }
 
 parameters {
@@ -68,12 +72,12 @@ transformed parameters {
 
 model {
   // ---- Priors ----
-  alpha_k      ~ normal(0, 1);
-  sigma_k      ~ normal(0, 1);    // HalfNormal(0,1) given lower=0 constraint
-  beta_opt_bar ~ normal(0, 1);
-  beta_rt_bar  ~ normal(0, 1);
-  tau_opt      ~ normal(0, 0.5);  // HalfNormal(0, 0.5)
-  tau_rt       ~ normal(0, 0.5);
+  alpha_k      ~ normal(0, prior_alpha_sd);
+  sigma_k      ~ normal(0, prior_sigma_sd);      // half-normal given the lower=0 constraint
+  beta_opt_bar ~ normal(0, prior_beta_bar_sd);
+  beta_rt_bar  ~ normal(0, prior_beta_bar_sd);
+  tau_opt      ~ normal(0, prior_tau_sd);        // half-normal
+  tau_rt       ~ normal(0, prior_tau_sd);
   beta_opt_raw ~ normal(0, 1);
   beta_rt_raw  ~ normal(0, 1);
 

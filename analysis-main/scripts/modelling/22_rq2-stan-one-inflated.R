@@ -59,6 +59,9 @@
 #   inputs.csv, run-info.txt
 #
 # NOTES
+#   - If the model is listed in cfg$run$prior_sensitivity, a second pass
+#     refits it with the broadened priors (prior_broad in settings.R) and
+#     writes a complete separate folder with the suffix -broad
 #   - The model folder is built as rq2-one-inflated.tmp and renamed when
 #     complete; an existing folder is never overwritten
 #   - Convergence criteria are cfg$model$convergence
@@ -74,8 +77,13 @@ options(mc.cores = parallel::detectCores())
 rstan::rstan_options(auto_write = FALSE)
 
 rq2_stan_one_inflated <- function(cfg) {
+  for (pass in prior_passes(cfg, "rq2_one_inflated")) rq2_stan_one_inflated_pass(cfg, pass)
+  invisible(NULL)
+}
+
+rq2_stan_one_inflated_pass <- function(cfg, pass) {
   
-  run <- model_begin("rq2-one-inflated")
+  run <- model_begin(paste0("rq2-one-inflated", pass$suffix))
   if (is.null(run)) return(invisible(NULL))
   
   source(here::here("scripts", "modelling", "_rq2-ppc.R"))
@@ -100,7 +108,7 @@ rq2_stan_one_inflated <- function(cfg) {
   adapt_delta_val <- as.numeric(st$adapt_delta)
   treedepth_val   <- as.integer(st$treedepth)
   
-  pr <- st$prior
+  pr <- pass$prior
   pr_names <- c("alpha_sd", "sigma_u_sd", "sigma_s_sd", "sigma_v_sd",
                 "alpha_omega_sd", "phi_sd")
   stopifnot(!is.null(pr), all(pr_names %in% names(pr)),
@@ -219,5 +227,9 @@ rq2_stan_one_inflated <- function(cfg) {
   # ---- Diagnostics (written last: marks the run as complete) ----
   write_diagnostics(run, rbindlist(lapply(results, `[[`, "diag"), fill = TRUE))
   
-  model_end(run, cfg, settings = st, key = "rq2")
+  settings_run <- st
+  if (pass$name != "main")
+    settings_run <- modifyList(settings_run, list(prior = pr, prior_pass = pass$name))
+  model_end(run, cfg, settings = settings_run,
+            key = if (pass$name == "main") "rq2" else NULL)
 }

@@ -56,6 +56,9 @@
 #   inputs.csv, run-info.txt
 #
 # NOTES
+#   - If the model is listed in cfg$run$prior_sensitivity, a second pass
+#     refits it with the broadened priors (prior_broad in settings.R) and
+#     writes a complete separate folder with the suffix -broad
 #   - The model folder is built as rq4-bernoulli.tmp and renamed when
 #     complete; an existing folder is never overwritten
 #   - Convergence criteria are cfg$model$convergence
@@ -67,8 +70,13 @@ options(mc.cores = parallel::detectCores())
 rstan::rstan_options(auto_write = FALSE)
 
 rq4_stan_bernoulli <- function(cfg) {
+  for (pass in prior_passes(cfg, "rq4_bernoulli")) rq4_stan_bernoulli_pass(cfg, pass)
+  invisible(NULL)
+}
+
+rq4_stan_bernoulli_pass <- function(cfg, pass) {
   
-  run <- model_begin("rq4-bernoulli")
+  run <- model_begin(paste0("rq4-bernoulli", pass$suffix))
   if (is.null(run)) return(invisible(NULL))
   
   seed   <- as.integer(cfg$run$seed)
@@ -96,7 +104,7 @@ rq4_stan_bernoulli <- function(cfg) {
   adapt_delta_val <- as.numeric(st$adapt_delta)
   treedepth_val   <- as.integer(st$treedepth)
   
-  pr <- st$prior
+  pr <- pass$prior
   pr_names <- c("alpha_sd", "sigma_u_sd", "sigma_s_sd")
   stopifnot(!is.null(pr), all(pr_names %in% names(pr)),
             all(vapply(pr[pr_names], function(x) length(x) == 1L && is.finite(x) && x > 0, logical(1))))
@@ -287,5 +295,9 @@ rq4_stan_bernoulli <- function(cfg) {
   # ---- Diagnostics (written last: marks the run as complete) ----
   write_diagnostics(run, rbindlist(lapply(results, `[[`, "diag"), fill = TRUE))
   
-  model_end(run, cfg, settings = st, key = "rq4")
+  settings_run <- st
+  if (pass$name != "main")
+    settings_run <- modifyList(settings_run, list(prior = pr, prior_pass = pass$name))
+  model_end(run, cfg, settings = settings_run,
+            key = if (pass$name == "main") "rq4" else NULL)
 }

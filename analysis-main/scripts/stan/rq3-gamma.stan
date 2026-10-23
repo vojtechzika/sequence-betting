@@ -16,8 +16,8 @@
 //   bp_s ~ Normal(0, sbp) centered
 //
   // Priors:
-  //   ap ~ Normal(0, 1)
-//   sup, sbp ~ HalfNormal(0, 1)
+  //   ap       ~ Normal(0, prior_ap_sd)
+//   sup, sbp ~ HalfNormal(0, prior_sup_sd), HalfNormal(0, prior_sbp_sd)
 //   shape ~ Gamma(2, 0.1)
 //   gamma_drift ~ Normal(0, prior_gamma_sd)
 //
@@ -36,6 +36,9 @@
       int<lower=0,upper=1> include_drift;
       vector[T] block_c;
       real<lower=0> prior_gamma_sd;
+      real<lower=0> prior_ap_sd;     // prior SD of the intercept
+      real<lower=0> prior_sup_sd;    // prior scale of the participant SD
+      real<lower=0> prior_sbp_sd;    // prior scale of the sequence SD
     }
   parameters {
     real ap;
@@ -52,9 +55,9 @@
   }
   model {
     // priors
-    ap          ~ normal(0, 1);
-    sup         ~ normal(0, 1);
-    sbp         ~ normal(0, 1);
+    ap          ~ normal(0, prior_ap_sd);
+    sup         ~ normal(0, prior_sup_sd);
+    sbp         ~ normal(0, prior_sbp_sd);
     up_raw      ~ normal(0, 1);
     bp_raw      ~ normal(0, 1);
     shape       ~ gamma(2, 0.1);

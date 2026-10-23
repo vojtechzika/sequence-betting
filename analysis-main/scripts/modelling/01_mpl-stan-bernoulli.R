@@ -8,8 +8,9 @@
 #   expected-utility difference between lotteries A and B, with a
 #   normal prior on r_i and a lognormal prior on lambda_i
 #   (cfg$model$stan$mpl_bernoulli$prior). The model is fitted to the pooled
-#   sample and to each treatment, and, if cfg$run$consistent_only is
-#   TRUE, to the Holt-Laury-consistent subsets of each. Convergence
+#   sample (both treatments combined) and to each treatment. Because
+#   participants are not pooled, estimates for the Holt-Laury-consistent
+#   subset are obtained by filtering these fits (07_a-star-draws.R). Convergence
 #   diagnostics are part of this script.
 #
 #   Each participant's posterior depends only on that participant's own
@@ -81,7 +82,6 @@
 # TAGS
 #   pooled, <treatment>                        (all participants; "pooled" here
 #                                               means both treatments combined)
-#   pooled_consistent, <treatment>_consistent  (if consistent_only)
 #
 # NOTES
 #   - The model folder is built as mpl-bernoulli.tmp and renamed when
@@ -197,7 +197,6 @@ mpl_stan_bernoulli <- function(cfg) {
   seed            <- as.integer(cfg$run$seed)
   grid_tol        <- 0.10   # tolerated |sampler - grid| posterior mean of r_i
   exact_share_max <- 0.05   # largest share of participants with replaced draws
-  consistent_only <- isTRUE(cfg$run$consistent_only)
   design          <- cfg$design
   treatments      <- names(design$seq$treatments)
   
@@ -278,7 +277,6 @@ mpl_stan_bernoulli <- function(cfg) {
   # Holt-Laury inconsistency flag, as defined in 22_score-switching-point-r.R
   if (!all(mpl$pid %in% sw$pid)) stop("MPL participants missing from switching-point-r.csv.")
   mpl <- merge(mpl, sw[, .(pid, inconsistent = as.integer(inconsistent))], by = "pid")
-  consistent_pids <- mpl[inconsistent == 0L, pid]
   
   choice_cols <- grep("^c\\d+$", names(mpl), value = TRUE)
   choice_cols <- choice_cols[order(as.integer(sub("^c", "", choice_cols)))]
@@ -393,20 +391,11 @@ mpl_stan_bernoulli <- function(cfg) {
     )
   }
   
-  # ---- Fits: pooled, by treatment, and consistent-only subsets ----
+  # ---- Fits: pooled and by treatment ----
   results <- list()
   results[["pooled"]] <- fit_one(mpl, "pooled", "pooled", "full")
   for (tr in treatments) {
     results[[tr]] <- fit_one(mpl[treat == tr], tr, tr, "full")
-  }
-  if (consistent_only) {
-    mpl_c <- mpl[pid %in% consistent_pids]
-    results[["pooled_consistent"]] <- fit_one(mpl_c, "pooled_consistent",
-                                              "pooled", "consistent")
-    for (tr in treatments) {
-      results[[paste0(tr, "_consistent")]] <-
-        fit_one(mpl_c[treat == tr], paste0(tr, "_consistent"), tr, "consistent")
-    }
   }
   
   # ---- Summary of r_mean by tag, consistency and sex ----

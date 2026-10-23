@@ -19,8 +19,10 @@
 //   up_i ~ Normal(0, sup),  bp_s ~ Normal(0, sbp) centered
 //
 // Priors:
-//   a0, ap ~ Normal(0, 1)
-//   su0, sb0, sup, sbp ~ HalfNormal(0, 1)
+//   a0          ~ Normal(0, prior_a0_sd)
+//   ap          ~ Normal(0, prior_ap_sd)
+//   su0, sb0    ~ HalfNormal(0, prior_su0_sd), HalfNormal(0, prior_sb0_sd)
+//   sup, sbp    ~ HalfNormal(0, prior_sup_sd), HalfNormal(0, prior_sbp_sd)
 //   shape ~ Gamma(2, 0.1)
 //   gamma_drift ~ Normal(0, prior_gamma_sd)
 //
@@ -40,6 +42,12 @@ data {
   int<lower=0,upper=1> include_drift;
   vector[T] block_c;
   real<lower=0> prior_gamma_sd;
+  real<lower=0> prior_a0_sd;     // prior SD of the hurdle intercept
+  real<lower=0> prior_ap_sd;     // prior SD of the positive-part intercept
+  real<lower=0> prior_su0_sd;    // prior scale of the participant SD, hurdle
+  real<lower=0> prior_sb0_sd;    // prior scale of the sequence SD, hurdle
+  real<lower=0> prior_sup_sd;    // prior scale of the participant SD, positive part
+  real<lower=0> prior_sbp_sd;    // prior scale of the sequence SD, positive part
 }
 parameters {
   // hurdle part
@@ -65,12 +73,12 @@ transformed parameters {
 }
 model {
   // priors
-  a0          ~ normal(0, 1);
-  ap          ~ normal(0, 1);
-  su0         ~ normal(0, 1);
-  sb0         ~ normal(0, 1);
-  sup         ~ normal(0, 1);
-  sbp         ~ normal(0, 1);
+  a0          ~ normal(0, prior_a0_sd);
+  ap          ~ normal(0, prior_ap_sd);
+  su0         ~ normal(0, prior_su0_sd);
+  sb0         ~ normal(0, prior_sb0_sd);
+  sup         ~ normal(0, prior_sup_sd);
+  sbp         ~ normal(0, prior_sbp_sd);
   u0_raw      ~ normal(0, 1);
   up_raw      ~ normal(0, 1);
   b0_raw      ~ normal(0, 1);

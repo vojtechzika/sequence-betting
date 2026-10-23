@@ -8,8 +8,9 @@
 // the preregistration (EX1, part II).
 //
 // Priors (preregistered):
-//   alpha, b_* ~ Normal(0, 1)
-//   sigma      ~ HalfNormal(0, 1)
+//   alpha      ~ Normal(0, prior_alpha_sd)
+//   b_*        ~ Normal(0, prior_b_sd)
+//   sigma      ~ HalfNormal(0, prior_sigma_sd)
 
 data {
   int<lower=1> N;        // participants
@@ -17,6 +18,9 @@ data {
   vector[N] Zopt;        // standardized LOT-R
   vector[N] Zrt;         // standardized log response time
   vector[N] Zr;          // standardized risk parameter r
+  real<lower=0> prior_alpha_sd;  // prior SD of the intercept
+  real<lower=0> prior_b_sd;      // prior SD of the slopes
+  real<lower=0> prior_sigma_sd;  // prior scale of the residual SD (half-normal)
 }
 
 parameters {
@@ -28,11 +32,11 @@ parameters {
 }
 
 model {
-  alpha ~ normal(0, 1);
-  b_opt ~ normal(0, 1);
-  b_rt  ~ normal(0, 1);
-  b_r   ~ normal(0, 1);
-  sigma ~ normal(0, 1);   // half-normal through the lower bound
+  alpha ~ normal(0, prior_alpha_sd);
+  b_opt ~ normal(0, prior_b_sd);
+  b_rt  ~ normal(0, prior_b_sd);
+  b_r   ~ normal(0, prior_b_sd);
+  sigma ~ normal(0, prior_sigma_sd);   // half-normal through the lower bound
 
   y ~ normal(alpha + b_opt * Zopt + b_rt * Zrt + b_r * Zr, sigma);
 }

@@ -215,6 +215,47 @@ hl_sample <- function(cfg) {
 }
 
 # --------------------------------------------------------
+# Prior-sensitivity passes
+# --------------------------------------------------------
+# Passes to run for the model of a settings block `block` (a name in
+# cfg$model$stan, e.g. "rq1_bernoulli"). Every model has a main pass with its
+# `prior`. If the block is listed in cfg$run$prior_sensitivity, a second pass
+# refits the model with the broadened `prior_broad` (preregistered sensitivity
+# analysis) into the folder <folder>-broad, which is never selected in
+# selected-models.csv. Each pass is a list: name ("main" or "broad"), prior and
+# suffix (appended to the model folder).
+prior_passes <- function(cfg, block) {
+  listed <- as.character(cfg$run$prior_sensitivity)
+  stan   <- cfg$model$stan
+  
+  unknown <- setdiff(listed, names(stan))
+  if (length(unknown) > 0L) {
+    stop("cfg$run$prior_sensitivity lists unknown models: ",
+         paste(unknown, collapse = ", "), call. = FALSE)
+  }
+  no_broad <- listed[vapply(listed, function(b) is.null(stan[[b]]$prior_broad), logical(1))]
+  if (length(no_broad) > 0L) {
+    stop("cfg$run$prior_sensitivity lists models without a prior_broad list: ",
+         paste(no_broad, collapse = ", "), call. = FALSE)
+  }
+  
+  st <- stan[[block]]
+  stopifnot(!is.null(st), !is.null(st$prior))
+  passes <- list(list(name = "main", prior = st$prior, suffix = ""))
+  
+  if (block %in% listed) {
+    if (!setequal(names(st$prior_broad), names(st$prior))) {
+      stop("prior_broad of '", block, "' must have the same parameters as prior.",
+           call. = FALSE)
+    }
+    # the broadened list is ordered like the main one
+    passes[[2L]] <- list(name = "broad", prior = st$prior_broad[names(st$prior)],
+                         suffix = "-broad")
+  }
+  passes
+}
+
+# --------------------------------------------------------
 # Lineage
 # --------------------------------------------------------
 # Checks that the models in selected-models.csv are consistent: every

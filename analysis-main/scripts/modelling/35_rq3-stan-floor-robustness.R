@@ -116,6 +116,14 @@ rq3_stan_floor_robustness <- function(cfg,
       prior_gamma_sd = prior_gamma_sd
     )
     if (likelihood == "hurdle_gamma") data_list$is_zero <- as.integer(y <= 0)
+    # prior scales of the model (settings.R: cfg$model$stan$<model>$prior)
+    pr <- st$prior
+    stopifnot(!is.null(pr))
+    prior_names <- switch(likelihood,
+      hurdle_gamma = c("a0", "ap", "su0", "sb0", "sup", "sbp"),
+      gamma        = c("ap", "sup", "sbp"),
+      gaussian     = c("alpha", "sigma_u", "sigma_s", "sigma"))
+    for (nm in prior_names) data_list[[paste0("prior_", nm, "_sd")]] <- as.numeric(pr[[paste0(nm, "_sd")]])
 
     msg("RQ3 floor robustness: ", folder, " ", tr, "/", sample, " | xmin=", xmin,
         " | N=", data_list$N, " | T=", data_list$T)

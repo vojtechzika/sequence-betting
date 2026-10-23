@@ -35,7 +35,15 @@ settings <- list(
     consistent_only = TRUE,
     
     # Global seed for reproducibility
-    seed = 12345
+    seed = 12345,
+    
+    # Prior-sensitivity analysis: models refitted with the
+    # broadened priors of their prior_broad list, as an additional pass written
+    # to <model folder>-broad (never selected in selected-models.csv).
+    # Names are the blocks of model$stan below; c() switches the analysis off.
+    prior_sensitivity = c("mpl_hierarchical", "rq1_bernoulli", "rq2_gaussian", "rq2_one_inflated",
+                          "rq2_one_inflated_seq", "rq3_hurdle_gamma", "rq3_gamma",
+                          "rq3_gaussian", "rq4_bernoulli")
   ),
   
   # ----------------------------------------------------------
@@ -61,15 +69,33 @@ settings <- list(
         iter = 3000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
+      mpl_hierarchical = list(
+        # Population model: r_i ~ Normal(mu_r, sigma_r), log(lambda_i) ~ Normal(mu_ll, sigma_ll).
+        # Hyperpriors: mu_r ~ Normal(mu_r_mean, mu_r_sd), sigma_r ~ HalfNormal(0, sigma_r_sd),
+        # mu_ll ~ Normal(log(lambda_mean), mu_ll_sd), sigma_ll ~ HalfNormal(0, sigma_ll_sd).
+        # Centred on the individual-level prior of mpl_bernoulli.
+        prior = list(mu_r_mean = 0.27, mu_r_sd = 0.36, sigma_r_sd = 1,
+                     lambda_mean = 30, mu_ll_sd = 0.5, sigma_ll_sd = 1),
+        # broadened priors of the prior-sensitivity pass: the weakly informative scales of the
+        # population model; the calibrated Bland (2023) centres and spreads are kept
+        prior_broad = list(mu_r_mean = 0.27, mu_r_sd = 0.36, sigma_r_sd = 2,
+                           lambda_mean = 30, mu_ll_sd = 0.5, sigma_ll_sd = 2),
+        iter = 3000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 10
+      ),
+      
       rq1_bernoulli = list(
         # intercept: Normal(0, alpha_sd), participant SD: HalfNormal(0, sigma_u_sd), sequence SD: HalfNormal(0, sigma_s_sd)
         prior = list(alpha_sd = 1.5, sigma_u_sd = 1, sigma_s_sd = 1),
+        # broadened priors of the prior-sensitivity pass (preregistered: Normal(0, 2), HalfNormal(0, 2))
+        prior_broad = list(alpha_sd = 2, sigma_u_sd = 2, sigma_s_sd = 2),
         iter = 8000, warmup = 1000, chains = 4, adapt_delta = 0.97, treedepth = 13
       ),
       
       rq2_gaussian = list(
         # intercept: Normal(0, alpha_sd); participant, sequence and residual SDs: HalfNormal(0, *_sd)
         prior = list(alpha_sd = 1, sigma_u_sd = 1, sigma_s_sd = 1, sigma_sd = 1),
+        # broadened priors of the prior-sensitivity pass
+        prior_broad = list(alpha_sd = 2, sigma_u_sd = 2, sigma_s_sd = 2, sigma_sd = 2),
         iter = 8000, warmup = 2000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
@@ -79,6 +105,9 @@ settings <- list(
         # Beta-Binomial concentration: HalfNormal(0, phi_sd)
         prior = list(alpha_sd = 1, sigma_u_sd = 1, sigma_s_sd = 1, sigma_v_sd = 1,
                      alpha_omega_sd = 1.5, phi_sd = 5),
+        # broadened priors of the prior-sensitivity pass; phi_sd is already wider than 2 and is kept
+        prior_broad = list(alpha_sd = 2, sigma_u_sd = 2, sigma_s_sd = 2, sigma_v_sd = 2,
+                           alpha_omega_sd = 2, phi_sd = 5),
         iter = 12000, warmup = 2000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
@@ -87,18 +116,34 @@ settings <- list(
         # probability: HalfNormal(0, sigma_c_sd)
         prior = list(alpha_sd = 1, sigma_u_sd = 1, sigma_s_sd = 1, sigma_v_sd = 1,
                      sigma_c_sd = 1, alpha_omega_sd = 1.5, phi_sd = 5),
-        iter = 8000, warmup = 2000, chains = 4, adapt_delta = 0.95, treedepth = 12
+        # broadened priors of the prior-sensitivity pass; phi_sd is already wider than 2 and is kept
+        prior_broad = list(alpha_sd = 2, sigma_u_sd = 2, sigma_s_sd = 2, sigma_v_sd = 2,
+                           sigma_c_sd = 2, alpha_omega_sd = 2, phi_sd = 5),
+        iter = 12000, warmup = 2000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       rq3_hurdle_gamma = list(
+        # hurdle and positive-part intercepts (a0, ap): Normal(0, *_sd); participant and
+        # sequence SDs of both parts (su0, sb0, sup, sbp): HalfNormal(0, *_sd)
+        prior = list(a0_sd = 1, ap_sd = 1, su0_sd = 1, sb0_sd = 1, sup_sd = 1, sbp_sd = 1),
+        # broadened priors of the prior-sensitivity pass
+        prior_broad = list(a0_sd = 2, ap_sd = 2, su0_sd = 2, sb0_sd = 2, sup_sd = 2, sbp_sd = 2),
         iter = 12000, warmup = 1000, chains = 4, adapt_delta = 0.97, treedepth = 13
       ),
       
       rq3_gamma = list(
+        # intercept: Normal(0, ap_sd); participant and sequence SDs: HalfNormal(0, *_sd)
+        prior = list(ap_sd = 1, sup_sd = 1, sbp_sd = 1),
+        # broadened priors of the prior-sensitivity pass
+        prior_broad = list(ap_sd = 2, sup_sd = 2, sbp_sd = 2),
         iter = 8000, warmup = 1000, chains = 4, adapt_delta = 0.97, treedepth = 13
       ),
       
       rq3_gaussian = list(
+        # intercept: Normal(0, alpha_sd); participant, sequence and residual SDs: HalfNormal(0, *_sd)
+        prior = list(alpha_sd = 1, sigma_u_sd = 1, sigma_s_sd = 1, sigma_sd = 1),
+        # broadened priors of the prior-sensitivity pass
+        prior_broad = list(alpha_sd = 2, sigma_u_sd = 2, sigma_s_sd = 2, sigma_sd = 2),
         iter = 20000, warmup = 2000, chains = 4, adapt_delta = 0.97, treedepth = 13
       ),
       
@@ -106,14 +151,25 @@ settings <- list(
       rq4_bernoulli = list(
         # intercept: Normal(0, alpha_sd); participant and sequence SDs: HalfNormal(0, *_sd)
         prior = list(alpha_sd = 1.5, sigma_u_sd = 1, sigma_s_sd = 1),
+        # broadened priors of the prior-sensitivity pass
+        prior_broad = list(alpha_sd = 2, sigma_u_sd = 2, sigma_s_sd = 2),
         iter = 3000, warmup = 1000, chains = 4, adapt_delta = 0.95, treedepth = 12
       ),
       
       ex1_regression = list(
+        # intercept: Normal(0, alpha_sd); slopes: Normal(0, b_sd); residual SD: HalfNormal(0, sigma_sd)
+        prior = list(alpha_sd = 1, b_sd = 1, sigma_sd = 1),
+        # broadened priors of the prior-sensitivity pass
+        prior_broad = list(alpha_sd = 2, b_sd = 2, sigma_sd = 2),
         iter = 3000, warmup = 1000, chains = 4, adapt_delta = 0.99, treedepth = 13
       ),
       
       ex2 = list(
+        # outcome intercepts: Normal(0, alpha_sd); residual SDs: HalfNormal(0, sigma_sd);
+        # pooled slopes: Normal(0, beta_bar_sd); SDs of the slopes across outcomes: HalfNormal(0, tau_sd)
+        prior = list(alpha_sd = 1, sigma_sd = 1, beta_bar_sd = 1, tau_sd = 0.5),
+        # broadened priors of the prior-sensitivity pass
+        prior_broad = list(alpha_sd = 2, sigma_sd = 2, beta_bar_sd = 2, tau_sd = 2),
         iter = 3000, warmup = 1000, chains = 4, adapt_delta = 0.995, treedepth = 14
       ),
       
@@ -121,7 +177,9 @@ settings <- list(
         # fixed effects: Normal(0, beta_sd); participant and sequence-effect scales:
         # Student-t(3, 0, *_scale); participant-effect correlation: LKJ(lkj_eta)
         prior = list(beta_sd = 1.5, tau_scale = 1, lkj_eta = 2, sigma_v_scale = 1),
-        iter = 9000, warmup = 1500, chains = 4, adapt_delta = 0.97, treedepth = 13
+        # broadened priors of the prior-sensitivity pass; lkj_eta is a shape parameter and is kept
+        prior_broad = list(beta_sd = 2, tau_scale = 2, lkj_eta = 2, sigma_v_scale = 2),
+        iter = 12000, warmup = 2000, chains = 4, adapt_delta = 0.97, treedepth = 13
       )
     ),
     

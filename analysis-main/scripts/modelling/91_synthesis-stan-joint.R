@@ -13,6 +13,10 @@
 #   them: whether the model is used is decided by selecting its folder in
 #   selected-models.csv.
 #
+#   The betting equation includes a linear block drift term when the drift
+#   check selects one for betting in the sample (drift-decisions.rds of the
+#   MPL model, key <treatment>_full_bet); the side equation has none.
+#
 #   Cues (sequence-level, outcome-blind, computed from the six symbols):
 #     betting equation (unsigned)
 #       imb_mag  = |#Heads - #Tails| / 6
@@ -40,7 +44,7 @@
 #
 # INPUT
 #   model "mpl": sample/analysis-trials.csv, sample/sample-definitions.csv
-#               (through analysis_trials())
+#               (through analysis_trials()), drift/drift-decisions.rds
 #   scripts/stan/synthesis-joint.stan
 #   cfg$model$stan$synthesis (sampler and prior), cfg$model$ppc$synthesis_k
 #
@@ -52,6 +56,9 @@
 #   inputs.csv, run-info.txt
 #
 # NOTES
+#   - If the model is listed in cfg$run$prior_sensitivity, a second pass
+#     refits it with the broadened priors (prior_broad in settings.R) and
+#     writes a complete separate folder with the suffix -broad
 #   - The model folder is built as synthesis-joint.tmp and renamed when
 #     complete; an existing folder is never overwritten
 #   - Convergence criteria are cfg$model$convergence
@@ -64,8 +71,13 @@ options(mc.cores = parallel::detectCores())
 rstan::rstan_options(auto_write = FALSE)
 
 synthesis_stan_joint <- function(cfg) {
+  for (pass in prior_passes(cfg, "synthesis")) synthesis_stan_joint_pass(cfg, pass)
+  invisible(NULL)
+}
 
-  run <- model_begin("synthesis-joint")
+synthesis_stan_joint_pass <- function(cfg, pass) {
+
+  run <- model_begin(paste0("synthesis-joint", pass$suffix))
   if (is.null(run)) return(invisible(NULL))
 
   seed   <- as.integer(cfg$run$seed)
@@ -87,7 +99,7 @@ synthesis_stan_joint <- function(cfg) {
   adapt_delta_val <- as.numeric(st$adapt_delta)
   treedepth_val   <- as.integer(st$treedepth)
 
-  pr <- st$prior
+  pr <- pass$prior
   pr_names <- c("beta_sd", "tau_scale", "lkj_eta", "sigma_v_scale")
   stopifnot(!is.null(pr), all(pr_names %in% names(pr)),
             all(vapply(pr[pr_names], function(x) length(x) == 1L && is.finite(x) && x > 0, logical(1))))
@@ -96,6 +108,17 @@ synthesis_stan_joint <- function(cfg) {
   stopifnot(length(K_ppc) == 1L, is.finite(K_ppc), K_ppc >= 50L)
 
   sm <- rstan::stan_model(stan_file)
+
+  # Drift decision for betting in the sample (linear drift only)
+  drift_decisions <- readRDS(model_path("mpl", file.path("drift", "drift-decisions.rds")))
+  get_drift_cfg <- function(tr, sample) {
+    key <- paste(tr, sample, "bet", sep = "_")
+    res <- drift_decisions[[key]]
+    if (is.null(res)) stop("No drift decision for key: ", key, call. = FALSE)
+    if (isTRUE(res$drift) && !identical(as.character(res$drift_type), "linear"))
+      stop("Drift type '", res$drift_type, "' for ", key, " is not implemented in this model (linear only).", call. = FALSE)
+    list(drift = isTRUE(res$drift), type = res$drift_type)
+  }
 
   stem <- function(prefix, tr, sample, ext = "rds") paste0(prefix, "-", tr, "-", sample, ".", ext)
 
@@ -115,7 +138,7 @@ synthesis_stan_joint <- function(cfg) {
   # ---- Posterior predictive checks for one fit ----
   ppc_one <- function(fit, dl, tr, sample) {
 
-    post  <- rstan::extract(fit, pars = c("beta_bet", "beta_side", "u", "v_bet", "v_side"))
+    post  <- rstan::extract(fit, pars = c("beta_bet", "beta_side", "u", "v_bet", "v_side", "gamma_drift"))
     K_all <- nrow(post$beta_bet)
     K_use <- min(K_ppc, K_all)
     set.seed(seed + 1001L)
@@ -137,6 +160,7 @@ synthesis_stan_joint <- function(cfg) {
       eta_b <- post$beta_bet[k, 1] + post$u[k, 1, dl$pid] + post$v_bet[k, dl$sid] +
         (post$beta_bet[k, 2] + post$u[k, 2, dl$pid]) * dl$run_dum +
         (post$beta_bet[k, 3] + post$u[k, 3, dl$pid]) * dl$imb_mag
+      if (dl$include_drift == 1L) eta_b <- eta_b + post$gamma_drift[k] * dl$block_c
       eta_s <- post$beta_side[k, 1] + post$u[k, 4, dl$pid_s] + post$v_side[k, dl$sid_s] +
         (post$beta_side[k, 2] + post$u[k, 5, dl$pid_s]) * dl$run_h_s +
         (post$beta_side[k, 3] + post$u[k, 6, dl$pid_s]) * dl$imb_h_s
@@ -177,12 +201,20 @@ synthesis_stan_joint <- function(cfg) {
     d[, `:=`(pid_i = match(pid, pid_levels), sid_s = match(seq, seq_levels))]
     setorder(d, pid_i, block, pos)
 
+    drift_cfg      <- get_drift_cfg(tr, sample)
+    include_drift  <- as.integer(drift_cfg$drift)
+    prior_gamma_sd <- if (include_drift) {
+      as.numeric(design$drift$params[[drift_cfg$type]]$prior_gamma_sd)
+    } else 0.3
+
     bd <- d[bet == 1L]
     data_list <- list(
       P = length(pid_levels), S = length(seq_levels), N = nrow(d),
       pid = as.integer(d$pid_i), sid = as.integer(d$sid_s),
       imb_mag = as.numeric(d$imb_mag), run_dum = as.numeric(d$run_dum),
       bet = as.integer(d$bet),
+      include_drift = include_drift, block_c = as.numeric(d$block_c),
+      prior_gamma_sd = prior_gamma_sd,
       N_bet = nrow(bd),
       pid_s = as.integer(bd$pid_i), sid_s = as.integer(bd$sid_s),
       run_h_s = as.numeric(bd$run_h_s), imb_h_s = as.numeric(bd$imb_h_s),
@@ -235,5 +267,9 @@ synthesis_stan_joint <- function(cfg) {
   # ---- Diagnostics (written last: marks the run as complete) ----
   write_diagnostics(run, rbindlist(lapply(results, `[[`, "diag"), fill = TRUE))
 
-  model_end(run, cfg, settings = st, key = "synthesis")
+  settings_run <- st
+  if (pass$name != "main")
+    settings_run <- modifyList(settings_run, list(prior = pass$prior, prior_pass = pass$name))
+  model_end(run, cfg, settings = settings_run,
+            key = if (pass$name == "main") "synthesis" else NULL)
 }

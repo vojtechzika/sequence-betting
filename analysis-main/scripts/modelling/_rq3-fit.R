@@ -60,6 +60,9 @@
 #   concerns the strictly positive losses to which the model is fitted.
 #
 # NOTES
+#   - If the model is listed in cfg$run$prior_sensitivity, a second pass
+#     refits it with the broadened priors (prior_broad in settings.R) and
+#     writes a complete separate folder with the suffix -broad
 #   - The model folder is built as <folder>.tmp and renamed when complete;
 #     an existing folder is never overwritten
 #   - Convergence criteria are cfg$model$convergence
@@ -72,12 +75,18 @@
 # ============================================================
 
 rq3_fit <- function(cfg, spec) {
+  block <- gsub("-", "_", spec$folder)   # name of the block in cfg$model$stan
+  for (pass in prior_passes(cfg, block)) rq3_fit_pass(cfg, spec, pass)
+  invisible(NULL)
+}
+
+rq3_fit_pass <- function(cfg, spec, pass) {
 
   # sample functions (analysis_trials, sample_definition) are defined in 09
   if (!exists("analysis_trials", mode = "function"))
     source(here::here("scripts", "modelling", "09_analysis-sample.R"))
 
-  run <- model_begin(spec$folder)
+  run <- model_begin(paste0(spec$folder, pass$suffix))
   if (is.null(run)) return(invisible(NULL))
 
   source(here::here("scripts", "modelling", "_rq3-welfare-loss.R"))
@@ -252,6 +261,14 @@ rq3_fit <- function(cfg, spec) {
       prior_gamma_sd = prior_gamma_sd
     )
     if (spec$likelihood == "hurdle_gamma") data_list$is_zero <- as.integer(y <= 0)
+    # prior scales of the model (settings.R: cfg$model$stan$<model>$prior)
+    pr <- pass$prior
+    stopifnot(!is.null(pr))
+    prior_names <- switch(spec$likelihood,
+      hurdle_gamma = c("a0", "ap", "su0", "sb0", "sup", "sbp"),
+      gamma        = c("ap", "sup", "sbp"),
+      gaussian     = c("alpha", "sigma_u", "sigma_s", "sigma"))
+    for (nm in prior_names) data_list[[paste0("prior_", nm, "_sd")]] <- as.numeric(pr[[paste0(nm, "_sd")]])
 
     msg("RQ3 ", spec$desc, ": fitting ", tr, "/", sample, " | N=", data_list$N,
         " | S=", data_list$S, " | T=", data_list$T, " | Krep=", wl$krep,
@@ -316,5 +333,9 @@ rq3_fit <- function(cfg, spec) {
   # ---- Diagnostics (written last: marks the run as complete) ----
   write_diagnostics(run, rbindlist(diag))
 
-  model_end(run, cfg, settings = st, key = "rq3")
+  settings_run <- st
+  if (pass$name != "main")
+    settings_run <- modifyList(st, list(prior = pass$prior, prior_pass = pass$name))
+  model_end(run, cfg, settings = settings_run,
+            key = if (pass$name == "main") "rq3" else NULL)
 }

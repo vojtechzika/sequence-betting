@@ -9,6 +9,11 @@ run_reporting <- function(cfg) {
   # ----------------------------
   source(here::here("scripts", "reporting", "_reporting-style.R"))
   
+  # Sample helpers (analysis_trials) are defined in the modelling stage; load them
+  # when reporting is run in a session where the modelling stage has not been run.
+  if (!exists("analysis_trials", mode = "function"))
+    source(here::here("scripts", "modelling", "09_analysis-sample.R"))
+  
   
   # ----------------------------
   # 00 Space: Descriptives
@@ -25,8 +30,8 @@ run_reporting <- function(cfg) {
   source(here::here("scripts", "reporting", "03_r-distribution.R"))
   r_distribution(cfg)
   
-  source(here::here("scripts", "reporting", "04_r-switching-point-vs-bayes.R"))
-  r_switching_point_vs_bayes(cfg)
+  source(here::here("scripts", "reporting", "04_r-robustness.R"))
+  r_robustness(cfg)
   
   source(here::here("scripts", "reporting", "05_behavior-bets-and-stakes.R"))
   behavior_bets_and_stakes(cfg) 
@@ -183,6 +188,10 @@ run_reporting <- function(cfg) {
   # ----------------------------
   source(here::here("scripts", "reporting", "101_discussion-split-sample.R"))
   discussion_split_sample(cfg)
+
+  # prior sensitivity (skips itself when no broad fits were requested)
+  source(here::here("scripts", "reporting", "102_prior-sensitivity.R"))
+  prior_sensitivity(cfg)
   
 
   msg("\nREPORTING completed.\n")

@@ -66,6 +66,9 @@
 #   confirmatory-mad for the sensitivity fits.
 #
 # NOTES
+#   - If the model is listed in cfg$run$prior_sensitivity, a second pass
+#     refits it with the broadened priors (prior_broad in settings.R) and
+#     writes a complete separate folder with the suffix -broad
 #   - The model folder is built as rq2-gaussian.tmp and renamed when
 #     complete; an existing folder is never overwritten
 #   - Convergence criteria are cfg$model$convergence
@@ -76,8 +79,13 @@ options(mc.cores = parallel::detectCores())
 rstan::rstan_options(auto_write = FALSE)
 
 rq2_stan_gaussian <- function(cfg) {
+  for (pass in prior_passes(cfg, "rq2_gaussian")) rq2_stan_gaussian_pass(cfg, pass)
+  invisible(NULL)
+}
+
+rq2_stan_gaussian_pass <- function(cfg, pass) {
   
-  run <- model_begin("rq2-gaussian")
+  run <- model_begin(paste0("rq2-gaussian", pass$suffix))
   if (is.null(run)) return(invisible(NULL))
   
   seed   <- as.integer(cfg$run$seed)
@@ -103,7 +111,7 @@ rq2_stan_gaussian <- function(cfg) {
   adapt_delta_val <- as.numeric(st$adapt_delta)
   treedepth_val   <- as.integer(st$treedepth)
   
-  pr <- st$prior
+  pr <- pass$prior
   pr_names <- c("alpha_sd", "sigma_u_sd", "sigma_s_sd", "sigma_sd")
   stopifnot(!is.null(pr), all(pr_names %in% names(pr)),
             all(vapply(pr[pr_names],
@@ -315,8 +323,11 @@ rq2_stan_gaussian <- function(cfg) {
   # ---- Diagnostics (written last: marks the run as complete) ----
   write_diagnostics(run, rbindlist(lapply(results, `[[`, "diag")))
   
-  model_end(run, cfg, settings = c(st, list(sd_floor = sd_floor,
-                                            sd_floor_sens = c(sd_floor_sens_low,
-                                                              sd_floor_sens_high))),
-            key = "rq2")
+  settings_run <- c(st, list(sd_floor = sd_floor,
+                             sd_floor_sens = c(sd_floor_sens_low,
+                                               sd_floor_sens_high)))
+  if (pass$name != "main")
+    settings_run <- modifyList(settings_run, list(prior = pr, prior_pass = pass$name))
+  model_end(run, cfg, settings = settings_run,
+            key = if (pass$name == "main") "rq2" else NULL)
 }
