@@ -1,5 +1,5 @@
 # ============================================================
-# 06_behavior-stakes-by-sequence.R
+# 07_behavior-stakes-by-sequence.R
 #
 # PURPOSE
 #   Figure with two panels showing, for every sequence, the betting rate

@@ -43,7 +43,9 @@
 # OUTPUT (data/output/csv/)
 #   rq3-<tr>-<sample>-sequences.csv             one row per sequence
 #   rq3-<tr>-<sample>-sequences-summary.csv     sequences by label
-#   rq3-<tr>-<sample>-participants.csv          one row per participant
+#   rq3-<tr>-<sample>-participants.csv          one row per participant; p_above_one is
+#                                               the share of posterior draws of mu_c_i
+#                                               above 1 (the whole endowment)
 #   rq3-<tr>-<sample>-participants-summary.csv  participants by label
 #   rq3-<tr>-<sample>-model-summary.csv         posterior summary of the
 #                                               scalar model parameters
@@ -197,7 +199,10 @@ rq3_tables <- function(cfg) {
       mu_c_median = apply(mu_i, 2, median),
       mu_c_mean   = apply(mu_i, 2, mean),
       mu_c_q025   = apply(mu_i, 2, quantile, probs = 0.025),
-      mu_c_q975   = apply(mu_i, 2, quantile, probs = 0.975)
+      mu_c_q975   = apply(mu_i, 2, quantile, probs = 0.975),
+      # share of posterior draws of the participant mean above the endowment
+      # (possible under the unbounded Gamma and Gaussian likelihoods)
+      p_above_one = apply(mu_i, 2, function(x) mean(x > 1))
     )
     for (rho in rho_vec)
       pid_tbl[, (paste0("L_rho_", rho_nm(rho))) := apply(mu_i, 2, function(x) mean(x > rho))]

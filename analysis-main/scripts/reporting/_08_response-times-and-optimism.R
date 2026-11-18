@@ -1,5 +1,5 @@
 # ============================================================
-# 07_response-times-and-optimism.R
+# 08_response-times-and-optimism.R
 #
 # PURPOSE
 #   Figure with two panels comparing the treatments.

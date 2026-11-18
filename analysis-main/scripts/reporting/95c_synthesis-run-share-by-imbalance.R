@@ -1,15 +1,17 @@
 # ============================================================
-# 101_discussion-split-sample.R
+# 95c_synthesis-run-share-by-imbalance.R
 #
 # PURPOSE
-#   Supporting material for the Discussion: do majority followers bet against
-#   the terminal run less as the imbalance grows, when the classification and
-#   the outcome rest on disjoint trials? Participants are classified from side
-#   choices on imbalanced sequences without a terminal run (binomial test of
-#   majority-symbol choice against 0.5 at level cfg$discussion$alpha):
-#   follower, restorer or uncertain. The outcome, the share of bets against
-#   the terminal run, is computed on run-ending sequences by |H - T| = 0, 2,
-#   4, 6.
+#   Synthesis, run cue by imbalance level: do participants who follow the
+#   majority symbol on imbalanced sequences bet against the terminal run less
+#   as the imbalance grows? To keep classification and outcome on different
+#   trials, participants are classified from their side choices on imbalanced
+#   sequences without a terminal run (binomial test of majority-symbol choice
+#   against 0.5 at level cfg$synthesis$run_share$alpha): follower (majority
+#   symbol), restorer (minority symbol) or uncertain. The outcome, the share
+#   of bets against the terminal run, is computed on run-ending sequences by
+#   |H - T| = 0, 2, 4, 6. These raw-choice classes differ from the model-based
+#   classes of 95_synthesis-joint-heterogeneity.R.
 #
 # SAMPLE
 #   All bets of each treatment in cfg$run$treatment.
@@ -24,7 +26,7 @@
 #   data/derived/master-sequences.csv   pid, treat, seq, side
 #
 # OUTPUT (data/output/csv/)
-#   discussion-split-sample.csv   one row per treatment, class and |H - T|:
+#   synthesis-run-share-by-imbalance.csv   one row per treatment, class and |H - T|:
 #     participants, trials, share of bets against the run, class size
 #
 # NOTES
@@ -33,9 +35,9 @@
 #   - Output files are overwritten at every run
 # ============================================================
 
-discussion_split_sample <- function(cfg) {
+synthesis_run_share_by_imbalance <- function(cfg) {
   
-  alpha  <- cfg$discussion$alpha
+  alpha  <- cfg$synthesis$run_share$alpha
   heads  <- as.character(cfg$design$seq$side_labels$heads)
   tails  <- as.character(cfg$design$seq$side_labels$tails)
   tr_vec <- unique(as.character(cfg$run$treatment))
@@ -86,7 +88,7 @@ discussion_split_sample <- function(cfg) {
   tbl <- rbindlist(out)
   setorder(tbl, treatment, cls, abs_imb)
   
-  f <- file.path(path_csv, "discussion-split-sample.csv")
+  f <- file.path(path_csv, "synthesis-run-share-by-imbalance.csv")
   fwrite(tbl, f);  msg("Saved: ", f)
   invisible(tbl)
 }

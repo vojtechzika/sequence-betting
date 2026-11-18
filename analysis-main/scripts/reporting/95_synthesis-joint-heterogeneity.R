@@ -28,8 +28,8 @@
 #       all trials, including those used here, so the shares describe how
 #       each class behaves and are not a test of the classification.
 #   (3) A figure of the distributions of the personal run and imbalance
-#       slopes (posterior medians), with the population fixed effects, by
-#       treatment.
+#       slopes (posterior medians), with the population fixed effects, in a
+#       grid with one row per treatment and one column per cue.
 #
 # SAMPLE
 #   synthesis-full of each treatment in cfg$run$treatment.
@@ -222,37 +222,39 @@ synthesis_joint_heterogeneity <- function(cfg) {
     }
   }
 
-  # ---- Figure: personal run and imbalance slopes by treatment ----
+  # ---- Figure: personal run and imbalance slopes, one row per treatment ----
   style <- treatment_style(cfg)
-  cols  <- setNames(style$colour, style$label)
-  mk_long <- function(name) rbindlist(lapply(tr_vec, function(tr) {
+  cols  <- setNames(style$colour, style$type)
+  cue_lab <- c(run = "Terminal run", imb = "Imbalance")
+  mk_long <- function(name, cue) rbindlist(lapply(tr_vec, function(tr) {
     d <- fread(file.path(path_csv, paste0("synthesis-", tr, "-joint-", name, ".csv")),
                encoding = "UTF-8", colClasses = c(pid = "character"))
-    data.table(label = style$label[style$treat == tr], slope = d$median)
+    data.table(treatment = style$type[style$treat == tr], cue = cue_lab[[cue]], slope = d$median)
   }))
-  mk_pop <- function(pname) rbindlist(lapply(tr_vec, function(tr) {
+  mk_pop <- function(pname, cue) rbindlist(lapply(tr_vec, function(tr) {
     d <- fread(file.path(path_csv, paste0("synthesis-", tr, "-joint-fixed-effects.csv")))
-    data.table(label = style$label[style$treat == tr], pop = d$median[d$param == pname])
+    data.table(treatment = style$type[style$treat == tr], cue = cue_lab[[cue]], pop = d$median[d$param == pname])
   }))
-  mk_panel <- function(long, pop, xlab) {
-    long[, label := factor(label, levels = style$label)]
-    pop[,  label := factor(label, levels = style$label)]
-    ggplot() +
-      geom_vline(xintercept = 0, colour = "grey40", linetype = "dotted") +
-      geom_density(data = long, aes(x = slope, colour = label, fill = label), alpha = 0.2, linewidth = 0) +
-      geom_vline(data = pop, aes(xintercept = pop, colour = label), linetype = "dashed", linewidth = 0.6) +
-      scale_colour_manual(values = cols) + scale_fill_manual(values = cols) +
-      labs(x = xlab, y = "Density", colour = NULL, fill = NULL) +
-      theme_classic(base_size = 10) +
-      theme(panel.grid.minor = element_blank(), legend.position = "bottom")
+  long <- rbind(mk_long("run-slope-participants", "run"), mk_long("imb-slope-participants", "imb"))
+  pop  <- rbind(mk_pop("side_run_slope", "run"), mk_pop("side_imb_slope", "imb"))
+  for (d in list(long, pop)) {
+    set(d, j = "treatment", value = factor(d$treatment, levels = style$type))
+    set(d, j = "cue",       value = factor(d$cue,       levels = cue_lab))
   }
-  p_run <- mk_panel(mk_long("run-slope-participants"), mk_pop("side_run_slope"),
-                    "Participant run slope (posterior median)")
-  p_imb <- mk_panel(mk_long("imb-slope-participants"), mk_pop("side_imb_slope"),
-                    "Participant imbalance slope (posterior median)")
-  fig <- p_run + p_imb + patchwork::plot_layout(guides = "collect") & theme(legend.position = "bottom")
+  # The scale of the slopes differs between the cues, so the x axis is free by cue
+  # and shared by the two treatments
+  fig <- ggplot() +
+    geom_vline(xintercept = 0, colour = "grey40", linetype = "dotted") +
+    geom_density(data = long, aes(x = slope, colour = treatment, fill = treatment), alpha = 0.2, linewidth = 0.4) +
+    geom_vline(data = pop, aes(xintercept = pop, colour = treatment), linetype = "dashed", linewidth = 0.6) +
+    scale_colour_manual(values = cols) + scale_fill_manual(values = cols) +
+    facet_grid(treatment ~ cue, scales = "free") +
+    labs(x = "Participant slope (posterior median)", y = "Density") +
+    theme_classic(base_size = 10) +
+    theme(legend.position = "none", panel.grid.minor = element_blank(),
+          strip.background = element_blank(), strip.text = element_text(size = 11, face = "bold"))
   f_fig <- file.path(path_fig, "synthesis-slope-distributions.png")
-  ggsave(f_fig, fig, width = 9, height = 3, dpi = 300);  msg("Saved: ", f_fig)
+  ggsave(f_fig, fig, width = 9, height = 4.5, dpi = 300);  msg("Saved: ", f_fig)
 
   invisible(TRUE)
 }

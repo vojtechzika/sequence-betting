@@ -25,11 +25,14 @@
 #   number of participants per block is checked against cfg$design$ex2$min_Nk.
 #
 # PREDICTORS
-#   Zopt  LOT-R score standardised across all participants of both
-#         treatments, so that it is on one scale in both fits
-#   Zrt   mean log screen time over all trials of a participant (betting and
-#         non-betting), standardised within the treatment over the
-#         participants of RQ1
+#   Zopt  LOT-R score standardised within the treatment over the
+#         participants with a response time
+#   Zrt   mean log screen time over all trials of a participant,
+#         standardised within the treatment over the participants with a
+#         response time. Bets take longer than abstentions, so the mean is
+#         related to the betting rate (outcome b) by construction; the
+#         restriction to betting trials would remove the time spent on
+#         trials without a bet and is not used
 #
 # INPUT
 #   models "rq1", "rq2", "rq3", "rq4": fit-<tr>-full.rds, pid-levels-<tr>-full.rds
@@ -41,8 +44,10 @@
 #
 # OUTPUT (model folder path_mod/ex2-associations/)
 #   fit-<tr>.rds        Stan fit
-#   data-<tr>.rds       list(blocks [pid and outcome per block], Nobs, Trep,
-#                       draw_idx per block)
+#   data-<tr>.rds       list(blocks [pid, standardised outcome draws y, Zopt,
+#                       Zrt and draw_idx per block], Nobs, Trep); y, Zopt and
+#                       Zrt are used by 61_ex2-tables.R for the residual
+#                       correlations
 #   diagnostics.csv     convergence of each fit and sample sizes
 #   inputs.csv, run-info.txt
 #
@@ -55,7 +60,7 @@
 #   - The outcome index of the Stan model is fixed (b=1, a=2, c=3, h=4)
 #   - Draws are subsampled per block with seed + block index, then the
 #     common number of draws (the minimum over blocks) is used
-#   - Zopt is not re-standardised within blocks
+#   - Zopt and Zrt are not re-standardised within blocks
 # ============================================================
 
 options(mc.cores = parallel::detectCores())
@@ -83,12 +88,9 @@ ex2_stan_associations_pass <- function(cfg, pass) {
   stopifnot(file.exists(stan_file))
   sm <- rstan::stan_model(stan_file)
 
-  # ---- LOT-R, standardised across both treatments ----
+  # ---- LOT-R score (standardised within the treatment below) ----
   lotr <- fread(file.path(path_der, "lotr-scored.csv"), encoding = "UTF-8")
   lotr <- unique(lotr[, .(pid = as.character(pid), lotr_score = as.numeric(lotr_score))])
-  s_l <- sd(lotr$lotr_score, na.rm = TRUE)
-  if (!is.finite(s_l) || s_l <= 0) stop("LOT-R score has no variation.", call. = FALSE)
-  lotr[, Zopt := (lotr_score - mean(lotr_score, na.rm = TRUE)) / s_l]
 
   # Outcome specification: fixed indexing used by the Stan model
   outcomes <- list(
@@ -116,7 +118,12 @@ ex2_stan_associations_pass <- function(cfg, pass) {
     s_r <- sd(rt$rt_log_mean)
     if (!is.finite(s_r) || s_r <= 0) stop("Response time has no variation (", tr, ").", call. = FALSE)
     rt[, Zrt := (rt_log_mean - mean(rt_log_mean)) / s_r]
-    pred <- merge(rt[, .(pid, Zrt)], lotr[, .(pid, Zopt)], by = "pid")
+    # LOT-R, standardised within the treatment over the participants with a response time
+    pred <- merge(rt[, .(pid, Zrt)], lotr[, .(pid, lotr_score)], by = "pid")
+    s_l  <- sd(pred$lotr_score, na.rm = TRUE)
+    if (!is.finite(s_l) || s_l <= 0) stop("LOT-R score has no variation (", tr, ").", call. = FALSE)
+    pred[, Zopt := (lotr_score - mean(lotr_score, na.rm = TRUE)) / s_l]
+    pred[, lotr_score := NULL]
 
     # ---- Outcome blocks ----
     blocks <- list()
@@ -164,7 +171,10 @@ ex2_stan_associations_pass <- function(cfg, pass) {
       control = list(adapt_delta = st$adapt_delta, max_treedepth = st$treedepth)
     )
     saveRDS(fit, file.path(run, paste0("fit-", tr, ".rds")))
-    saveRDS(list(blocks = lapply(blocks, function(b) b[c("k", "pid", "draw_idx")]),
+    saveRDS(list(blocks = lapply(blocks, function(b) {
+                   b$y <- b$y[seq_len(Trep_joint), , drop = FALSE]
+                   b[c("k", "pid", "draw_idx", "y", "Zopt", "Zrt")]
+                 }),
                  Nobs = data_list$Nobs, Trep = Trep_joint),
             file.path(run, paste0("data-", tr, ".rds")))
 

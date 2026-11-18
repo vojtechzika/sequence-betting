@@ -170,7 +170,7 @@ settings <- list(
         prior = list(alpha_sd = 1, sigma_sd = 1, beta_bar_sd = 1, tau_sd = 0.5),
         # broadened priors of the prior-sensitivity pass
         prior_broad = list(alpha_sd = 2, sigma_sd = 2, beta_bar_sd = 2, tau_sd = 2),
-        iter = 3000, warmup = 1000, chains = 4, adapt_delta = 0.995, treedepth = 14
+        iter = 3000, warmup = 1000, chains = 4, adapt_delta = 0.999, treedepth = 14
       ),
       
       synthesis = list(
@@ -216,13 +216,6 @@ settings <- list(
   ),
 
   # ----------------------------------------------------------
-  # Discussion
-  # ----------------------------------------------------------
-  discussion = list(
-    alpha = 0.05                    # level of the binomial classification test
-  ),
-
-  # ----------------------------------------------------------
   # Synthesis: descriptive checks outside the Stan model
   # ----------------------------------------------------------
   synthesis = list(
@@ -237,6 +230,9 @@ settings <- list(
     costdir = list(
       n_draw   = 1000L,             # posterior draws used (subsampled from each fit)
       min_bets = 30L                # minimum number of bets in the robustness subset
+    ),
+    run_share = list(
+      alpha = 0.05                  # level of the binomial classification test
     )
   )
 )

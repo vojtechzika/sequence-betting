@@ -1,5 +1,5 @@
 # ============================================================
-# 05_behavior-bets-and-stakes.R
+# 06_behavior-bets-and-stakes.R
 #
 # PURPOSE
 #   Figure with two panels comparing the treatments.

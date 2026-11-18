@@ -115,14 +115,22 @@ synthesis_draw_tools <- function(cfg) {
     c(sprintf("$%s%s$", digits_fmt(r$median), star),
       sprintf("$[%s, %s]$", digits_fmt(r$q025), digits_fmt(r$q975)))
   }
-  write_tex <- function(f, caption, label, colspec, header, body, footer, note) {
-    writeLines(c("\\begin{table}[htbp]", "\\centering", paste0("\\caption{", caption, "}"),
-                 paste0("\\label{", label, "}"), "\\begin{threeparttable}",
-                 paste0("\\begin{tabular}{", colspec, "}"), "\\toprule", header, "\\midrule",
-                 body, "\\midrule", footer, "\\bottomrule", "\\end{tabular}",
-                 "\\begin{tablenotes}[flushleft]", "\\footnotesize",
-                 paste0("\\item \\textit{Notes:} ", note), "\\end{tablenotes}",
-                 "\\end{threeparttable}", "\\end{table}"), f)
+  # Writes a table; with note = NULL the table has no notes block, is set in
+  # \footnotesize and carries its caption and label below the tabular.
+  write_tex <- function(f, caption, label, colspec, header, body, footer, note = NULL) {
+    core <- c(paste0("\\begin{tabular}{", colspec, "}"), "\\toprule", header, "\\midrule",
+              body, "\\midrule", footer, "\\bottomrule", "\\end{tabular}")
+    lines <- if (is.null(note)) {
+      c("\\begin{table}[htbp]", "\\centering", "\\footnotesize", core,
+        paste0("\\caption{", caption, "}"), paste0("\\label{", label, "}"), "\\end{table}")
+    } else {
+      c("\\begin{table}[htbp]", "\\centering", paste0("\\caption{", caption, "}"),
+        paste0("\\label{", label, "}"), "\\begin{threeparttable}", core,
+        "\\begin{tablenotes}[flushleft]", "\\footnotesize",
+        paste0("\\item \\textit{Notes:} ", note), "\\end{tablenotes}",
+        "\\end{threeparttable}", "\\end{table}")
+    }
+    writeLines(lines, f)
     msg("Saved: ", f)
   }
   

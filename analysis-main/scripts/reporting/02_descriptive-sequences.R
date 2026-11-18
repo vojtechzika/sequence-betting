@@ -8,16 +8,23 @@
 #
 # INPUT
 #   path_der/master-sequences.csv
+#   model "mpl": scored-<tr>.csv        Holt-Laury consistency flag, per treatment
 #
 # OUTPUT (data/output/csv/)
 #   descriptive-sequences-<tr>.csv      one row per sequence, by treatment
-#   descriptive-sequences-summary.csv   pooled and by treatment, all trials
+#   descriptive-sequences-summary.csv   pooled, by treatment, and by treatment
+#                                       for participants with a consistent
+#                                       Holt-Laury choice pattern (<tr>/consistent),
+#                                       all trials
 #
 # NOTES
 #   - A bet is a trial with a positive stake. Stakes and the share of Heads
 #     are computed over betting trials
 #   - Heads and Tails are the side labels of cfg$design$seq$side_labels
 #   - Standard deviations are across trials
+#   - <tr>/consistent is the confirmatory sample in the FN treatment, where all
+#     participants are normative betters; the FP treatment has no confirmatory
+#     sample, and its row is reported for completeness
 # ============================================================
 
 descriptive_sequences <- function(cfg) {
@@ -93,6 +100,12 @@ descriptive_sequences <- function(cfg) {
   for (tr in tr_vec) {
     x <- dt[treat == tr]
     if (nrow(x) > 0) rows[[tr]] <- global_desc(x, tr)
+    
+    # participants with a consistent Holt-Laury choice pattern
+    sc <- fread(model_path("mpl", paste0("scored-", tr, ".csv")), encoding = "UTF-8")
+    consistent_pid <- as.character(sc[as.integer(inconsistent) == 0L, pid])
+    xc <- dt[treat == tr & pid %in% consistent_pid]
+    if (nrow(xc) > 0) rows[[paste0(tr, "/consistent")]] <- global_desc(xc, paste0(tr, "/consistent"))
   }
   f_sum <- file.path(path_csv, "descriptive-sequences-summary.csv")
   fwrite(rbindlist(rows, use.names = TRUE, fill = TRUE), f_sum)

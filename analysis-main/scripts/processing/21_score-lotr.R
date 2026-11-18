@@ -4,14 +4,18 @@
 # PURPOSE
 #   Scores the LOT-R questionnaire: reverse-codes specified items,
 #   computes total score, mean, and z-score per participant.
-#   Also computes Cronbach alpha as a reliability check.
+#   Also computes Cronbach alpha as a reliability check, for all
+#   participants and separately for each treatment.
 #
 # INPUT
 #   path_src/lotr.csv
+#   path_src/participants.csv            treatment of each participant
 #
 # OUTPUT
 #   path_der/lotr-scored.csv     -- pid, lotr_score, lotr_mean, lotr_z
-#   path_csv/processing_lotr-alpha.csv -- reliability summary (Cronbach alpha)
+#   path_csv/processing_lotr-alpha.csv -- reliability summary (Cronbach alpha):
+#                                        one row for all participants (pooled)
+#                                        and one row per treatment
 #
 # NOTES
 #   - Scoring parameters defined in cfg$design$lotr
@@ -69,35 +73,40 @@ score_lotr <- function(cfg) {
   fwrite(out_scored, outfile_scored)
   msg("Saved: ", outfile_scored)
   
-  # ---- Cronbach alpha ----
-  alpha_result <- psych::alpha(dt[, ..scored_items])
-  alpha_val    <- alpha_result$total$raw_alpha
+  # ---- Cronbach alpha: all participants and each treatment ----
+  par <- fread(file.path(path_src, "participants.csv"), encoding = "UTF-8")
+  par[, pid := as.character(pid)]
+  dt  <- merge(dt, par[, .(pid, treat = as.character(treat))], by = "pid", all.x = TRUE)
   
-  alpha_interpretation <- if (alpha_val >= 0.9) {
-    "Excellent internal consistency (may be inflated in small samples)."
-  } else if (alpha_val >= 0.8) {
-    "Good internal consistency."
-  } else if (alpha_val >= 0.7) {
-    "Acceptable internal consistency."
-  } else if (alpha_val >= 0.6) {
-    "Questionable internal consistency."
-  } else if (alpha_val >= 0.5) {
-    "Poor internal consistency."
-  } else {
-    "Unacceptable internal consistency."
+  interpret_alpha <- function(a) {
+    if      (a >= 0.9) "Excellent internal consistency (may be inflated in small samples)."
+    else if (a >= 0.8) "Good internal consistency."
+    else if (a >= 0.7) "Acceptable internal consistency."
+    else if (a >= 0.6) "Questionable internal consistency."
+    else if (a >= 0.5) "Poor internal consistency."
+    else               "Unacceptable internal consistency."
   }
   
-  alpha_table <- data.table(
-    n_participants                  = nrow(dt),
-    n_items                         = length(scored_items),
-    raw_alpha                       = round(alpha_val, 4),
-    standardized_alpha              = round(alpha_result$total$std.alpha, 4),
-    average_inter_item_correlation  = round(alpha_result$total$average_r, 4),
-    interpretation                  = alpha_interpretation
-  )
+  alpha_row <- function(d, label) {
+    res <- suppressWarnings(psych::alpha(d[, ..scored_items]))
+    data.table(
+      sample                          = label,
+      n_participants                  = nrow(d),
+      n_items                         = length(scored_items),
+      raw_alpha                       = round(res$total$raw_alpha, 4),
+      standardized_alpha              = round(res$total$std.alpha, 4),
+      average_inter_item_correlation  = round(res$total$average_r, 4),
+      interpretation                  = interpret_alpha(res$total$raw_alpha)
+    )
+  }
+  
+  alpha_table <- rbindlist(c(
+    list(alpha_row(dt, "pooled")),
+    lapply(unique(na.omit(dt$treat)), function(tr) alpha_row(dt[treat == tr], tr))
+  ))
   
   fwrite(alpha_table, outfile_alpha_csv)
   msg("Saved: ", outfile_alpha_csv)
   
-  invisible(list(scored = out_scored, alpha = alpha_result, alpha_table = alpha_table))
+  invisible(list(scored = out_scored, alpha_table = alpha_table))
 }

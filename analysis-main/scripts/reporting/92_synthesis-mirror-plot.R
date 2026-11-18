@@ -4,7 +4,8 @@
 # PURPOSE
 #   Scatter plot of all 64 sequences in side-bias x betting-rate space:
 #   x = |Heads-share deviation from the grand mean| (abs(h_d_median)), y =
-#   betting-rate deviation from the grand mean (b_d_median, signed). Every
+#   betting-rate deviation from the grand mean (b_d_median, signed), both in
+#   percentage points. Every
 #   sequence is plotted and every mirror pair (the sequence with all H and T
 #   exchanged) is joined by a line. Visual weight goes to pairs with at
 #   least one credible betting-rate shift (b_sig): their points and lines
@@ -30,7 +31,7 @@
 #   must be the all-sequence run
 #
 # OUTPUT (data/output/figures/)
-#   synthesis-betting-side-mirror-<tr>-<sample>.png
+#   betting-side-scatter-mirror-<tr>-<sample>.png
 #
 # NOTES
 #   - ggrepel is used for the labels if installed
@@ -102,6 +103,9 @@ mirror_plot_one <- function(cfg, tr, tag, quiet = TRUE) {
     stop("synthesis_mirror_plot: input has no rows -- nothing to plot.")
   }
   
+  # Deviations are plotted in percentage points (the input is in shares)
+  dt_show[, `:=`(h_d_median = 100 * h_d_median, b_d_median = 100 * b_d_median)]
+  
   dt_show[, credible   := b_sig]
   dt_show[, show_label := credible | mirror %in% sig_seqs]  # pair has >=1 credible member
   dt_show[, pt_alpha   := fifelse(show_label, 1, 0.55)]
@@ -157,10 +161,15 @@ mirror_plot_one <- function(cfg, tr, tag, quiet = TRUE) {
     # the dashed vline + annotation below, no background tint.
     annotate("rect", xmin = -Inf, xmax = h_thresh, ymin = -Inf, ymax = Inf,
              fill = "grey50", alpha = 0, colour = NA) +
-    geom_hline(yintercept = 0, linetype = "solid", colour = "grey40") +
+    # Both reference lines are dashed: the vertical line separates sequences
+    # without and with a credible side bias, the horizontal line separates
+    # sequences with below-average and above-average betting rates.
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
     geom_vline(xintercept = h_thresh, linetype = "dashed", colour = "grey50") +
-    annotate("text", x = h_thresh, y = Inf, label = "side-bias n.s.  ←",
-             hjust = 1.05, vjust = 1.5, size = 3, colour = "grey50")
+    annotate("text", x = h_thresh, y = Inf, label = "side bias n.s.  \u2190",
+             hjust = 1.05, vjust = 1.5, size = 3, colour = "grey50") +
+    annotate("text", x = h_thresh, y = Inf, label = "\u2192  side bias significant",
+             hjust = -0.05, vjust = 1.5, size = 3, colour = "grey50")
   
   if (nrow(pairs) > 0L) {
     # Three visual tiers instead of a single credible/not-credible split:
@@ -241,8 +250,8 @@ mirror_plot_one <- function(cfg, tr, tag, quiet = TRUE) {
       name = NULL
     ) +
     labs(
-      x = "\n Side-bias Δ",
-      y = "Betting-rate Δ \n"
+      x = "\n Side-bias Δ (percentage points)",
+      y = "Betting-rate Δ (percentage points) \n"
     ) +
     # theme_classic(): white background, x/y axis lines, no gridlines at
     # all -- avoids the theme_minimal() grid-vs-LaTeX weight issue outright
@@ -250,7 +259,7 @@ mirror_plot_one <- function(cfg, tr, tag, quiet = TRUE) {
     theme_classic(base_size = 10) +
     theme(legend.position = "none", legend.box = "vertical")
   
-  out_file <- file.path(path_fig, paste0("synthesis-betting-side-mirror-", tr, "-", tag, ".png"))
+  out_file <- file.path(path_fig, paste0("betting-side-scatter-mirror-", tr, "-", tag, ".png"))
   ggsave(out_file, p, width = 10, height = 5, dpi = 300)
   msg("Saved: ", out_file)
   

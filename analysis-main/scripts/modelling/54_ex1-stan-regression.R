@@ -4,7 +4,7 @@
 # PURPOSE
 #   EX1, part II: predictors of the Gamblerish-Hot-handish Index (GHI).
 #   The participant-level index chi_i is regressed on standardised
-#   optimism (LOT-R), standardised log mean response time over all trials,
+#   optimism (LOT-R), standardised log mean response time over the betting trials,
 #   and the standardised posterior mean risk parameter r:
 #       chi_i = alpha + b_opt Zopt_i + b_rt Zrt_i + b_r Zr_i + e_i,
 #       e_i ~ N(0, sigma),
@@ -33,7 +33,7 @@
 # INPUT
 #   model "ex1-chi": chi-draws-<tr>-eps<main>.rds   (51_ex1-chi-draws.R)
 #   model "mpl":     r-draws-<tr>.rds, sample/analysis-trials.csv
-#                    (screen time on all trials, through analysis_trials())
+#                    (screen time of the betting trials, through analysis_trials())
 #   path_der/lotr-scored.csv                         (LOT-R score per participant)
 #   cfg$model$stan$ex1_regression (sampler settings, per fit)
 #   cfg$model$simulation$ex1_trep (number of fits)
@@ -61,6 +61,11 @@
 #     the number of fitted draws that do not. Degenerate draws are not fitted
 #     and are excluded from these summaries
 #   - Fit j uses seed + j; the set of draws is sampled with cfg$run$seed
+#   - Response time is the mean log screen time over the betting trials, as
+#     in EX2 and in 52_ex1-pure-sequences.R. Non-betting trials are shorter,
+#     so a mean over all trials would reflect the betting rate
+#   - The three predictors are standardised within the treatment sample of
+#     the regression
 # ============================================================
 
 options(mc.cores = parallel::detectCores())
@@ -121,8 +126,9 @@ ex1_stan_regression_pass <- function(cfg, pass) {
     r_obj <- readRDS(model_path("mpl", paste0("r-draws-", tr, ".rds")))
     r_dt  <- data.table(pid = as.character(r_obj$pid), r_mean = colMeans(r_obj$r_draws))
 
-    d  <- analysis_trials(tr, "rq1-full")   # all trials, betting or not
-    rt <- d[is.finite(screen_ms) & screen_ms > 0, .(rt_log_mean = mean(log(screen_ms))), by = pid]
+    d  <- analysis_trials(tr, "rq1-full")
+    rt <- d[bet == 1 & is.finite(screen_ms) & screen_ms > 0,
+            .(rt_log_mean = mean(log(screen_ms))), by = pid]   # betting trials only
 
     cov <- Reduce(function(a, b) merge(a, b, by = "pid", all.x = TRUE),
                   list(data.table(pid = pid_levels), lotr, r_dt, rt))

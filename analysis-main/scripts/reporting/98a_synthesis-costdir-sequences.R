@@ -132,7 +132,15 @@ synthesis_costdir_sequences <- function(cfg) {
     }))
     tl$write_tex(
       file.path(path_tab, paste0("synthesis-", tr, "-costdir-features.tex")),
-      caption = "Sequence features and outcomes across the four margins",
+      caption = paste0("\\textbf{Sequence features and outcomes across the four margins.} ",
+                       "Each column regresses a sequence-level quantity on a terminal-run indicator ",
+                       "(last two symbols identical) and imbalance-class indicators (reference: balanced 3--3), ",
+                       "separately within each posterior draw. Cells report the posterior median of the coefficient ",
+                       "(percentage points) with its 95\\% credible interval in brackets; an asterisk denotes an ",
+                       "interval excluding zero. Side bias uses the full sample; betting rate, stake deviation, and ",
+                       "welfare loss (shares of the endowment) use the ",
+                       if (conf_ok) "confirmatory" else "full", " sample. ",
+                       "The 0--6 class contains only the two pure sequences."),
       label   = paste0("Tab:synthesis-features", if (tr != tr_vec[1L]) paste0("-", tr)),
       colspec = "l*{4}{c}",
       header  = c(" & Direction & \\multicolumn{3}{c}{Engagement and welfare} \\\\",
@@ -142,14 +150,7 @@ synthesis_costdir_sequences <- function(cfg) {
       body    = body,
       footer  = c("Sequences & 64 & 64 & 64 & 64 \\\\",
                   paste("Posterior draws &", paste(rep(K, 4), collapse = " & "), "\\\\")),
-      note    = paste0("Each column regresses a sequence-level quantity on a terminal-run indicator ",
-                       "(last two symbols identical) and imbalance-class indicators (reference: balanced 3--3), ",
-                       "separately within each posterior draw. Cells report the posterior median of the coefficient ",
-                       "(percentage points) with its 95\\% credible interval in brackets; an asterisk denotes an ",
-                       "interval excluding zero. Side bias uses the full sample; betting rate, stake deviation, and ",
-                       "welfare loss (shares of the endowment) use the ",
-                       if (conf_ok) "confirmatory" else "full", " sample. ",
-                       "The 0--6 class contains only the two pure sequences."))
+      note    = NULL)
     
     out[[tr]] <- list(seq_link = a1, seq_features = a2)
   }

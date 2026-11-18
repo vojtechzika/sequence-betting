@@ -1,5 +1,5 @@
 # ============================================================
-# 04_r-robustness.R
+# 05_r-robustness.R
 #
 # PURPOSE
 #   Compares the classical Holt-Laury switching-point estimate of the
@@ -32,6 +32,14 @@
 #   computed here for every participant, and the posterior mean of the
 #   hierarchical model (02_mpl-stan-hierarchical.R). The table also reports
 #   the mean posterior SD of r_i of the primary and the hierarchical model.
+#
+#   A fifth table compares the treatments: the difference in the mean r_i
+#   between the first and the second treatment (FN minus FP in the design),
+#   for all participants and for consistent participants, estimated with the
+#   primary model, the hierarchical model and, for consistent participants,
+#   the switching point, together with Fisher's exact test of the share of
+#   inconsistent participants. It checks that the absence or presence of a
+#   treatment difference in risk aversion does not depend on the estimator.
 #
 # INPUT
 #   path_der/switching-point-r.csv
@@ -83,8 +91,20 @@
 #          alternative with the primary model; largest absolute difference
 #          to the grid, mean absolute difference to the hierarchical model, and
 #          the mean posterior SD of r_i of the primary and the hierarchical model
+#   path_csv/r-treatment-comparison.csv
+#       -- by sample (all, consistent) and estimator (primary, hierarchical,
+#          switching point): group sizes, mean r_i in each treatment, the
+#          difference (first minus second treatment) with a Welch 95% CI and
+#          the p-value of a two-sided Wilcoxon rank-sum test; the last rows
+#          give the share of inconsistent participants in each treatment, the
+#          difference and the p-value of Fisher's exact test (with the
+#          conditional odds ratio and its 95% CI)
 #   path_fig/r-switching-point-vs-bayes.png
 #       -- scatter plot of the two estimates by treatment
+#   path_fig/r-hierarchical-vs-primary.png
+#       -- scatter plot of the posterior means of the hierarchical and the
+#          primary model by treatment, for consistent and inconsistent
+#          participants
 #
 # NOTES
 #   - The switching-point estimate of participants who always choose
@@ -371,6 +391,97 @@ r_robustness <- function(cfg) {
   f_cmp <- file.path(path_csv, "r-model-comparison.csv")
   fwrite(res_cmp, f_cmp)
   msg("Saved: ", f_cmp)
+  
+  # ---- Comparison of the treatments ----
+  # Difference in the mean of r_i between the first and the second treatment
+  # (between-subject), by sample and estimator. Hierarchical estimates of
+  # consistent participants come from the fit on the consistent participants.
+  stopifnot(length(treatments) == 2L)
+  tr_a <- treatments[1]; tr_b <- treatments[2]
+  
+  get_est <- function(tr, smp, est) {
+    d <- scored_all[treat == tr]
+    if (smp == "consistent") d <- d[inconsistent == 0L]
+    switch(est,
+           primary      = d$r_mean,
+           switching    = merge(d[, .(pid)], dt[fit == tr, .(pid, r_sw)], by = "pid")$r_sw,
+           hierarchical = merge(d[, .(pid)],
+                                read_hier(if (smp == "consistent") paste0(tr, "_consistent") else tr),
+                                by = "pid")$r_hier)
+  }
+  
+  compare_treatments <- function(smp, est) {
+    xa <- get_est(tr_a, smp, est)
+    xb <- get_est(tr_b, smp, est)
+    tt <- t.test(xa, xb)                       # Welch
+    wt <- wilcox.test(xa, xb, exact = FALSE)
+    data.table(outcome = "mean_r", sample = smp, estimator = est,
+               treatment_first = tr_a, treatment_second = tr_b,
+               n_first = length(xa), n_second = length(xb),
+               est_first = mean(xa), est_second = mean(xb), diff = mean(xa) - mean(xb),
+               diff_lo = tt$conf.int[1], diff_hi = tt$conf.int[2],
+               p_value = wt$p.value, test = "Wilcoxon rank-sum")
+  }
+  res_tr <- rbindlist(list(
+    compare_treatments("all",        "primary"),
+    compare_treatments("all",        "hierarchical"),
+    compare_treatments("consistent", "primary"),
+    compare_treatments("consistent", "switching"),
+    compare_treatments("consistent", "hierarchical")
+  ))
+  
+  # share of inconsistent participants (rows: treatment; columns: inconsistent, consistent)
+  tab_t <- table(factor(scored_all$treat,        levels = c(tr_a, tr_b)),
+                 factor(scored_all$inconsistent, levels = c(1L, 0L)))
+  ft_t  <- fisher.test(tab_t)
+  res_inc <- data.table(
+    outcome = "share_inconsistent", sample = "all", estimator = NA_character_,
+    treatment_first = tr_a, treatment_second = tr_b,
+    n_first = sum(tab_t[tr_a, ]), n_second = sum(tab_t[tr_b, ]),
+    est_first  = tab_t[tr_a, "1"] / sum(tab_t[tr_a, ]),
+    est_second = tab_t[tr_b, "1"] / sum(tab_t[tr_b, ]),
+    p_value = ft_t$p.value, test = "Fisher's exact",
+    odds_ratio = unname(ft_t$estimate), odds_ratio_lo = ft_t$conf.int[1], odds_ratio_hi = ft_t$conf.int[2]
+  )
+  res_inc[, diff := est_first - est_second]
+  res_tr <- rbindlist(list(res_tr, res_inc), fill = TRUE)
+  
+  f_tr <- file.path(path_csv, "r-treatment-comparison.csv")
+  fwrite(res_tr, f_tr)
+  msg("Saved: ", f_tr)
+  
+  # ---- Figure: hierarchical against primary posterior means ----
+  # The hierarchical estimate of consistent participants comes from the fit on
+  # the consistent participants, that of inconsistent participants from the
+  # full-sample fit (as in the comparison table)
+  sty <- treatment_style(cfg)
+  pts <- rbindlist(lapply(treatments, function(tr) {
+    rbindlist(lapply(c("consistent", "inconsistent"), function(g) {
+      d <- scored_all[treat == tr & inconsistent == as.integer(g == "inconsistent"),
+                      .(pid, r_prim = r_mean)]
+      h <- read_hier(if (g == "consistent") paste0(tr, "_consistent") else tr)
+      d <- merge(d, h[, .(pid, r_hier)], by = "pid")
+      d[, `:=`(treat = tr, group = g)]
+      d
+    }))
+  }))
+  pts[, group := factor(group, levels = c("consistent", "inconsistent"),
+                        labels = c("Consistent", "Inconsistent"))]
+  pts[, panel := factor(treat, levels = sty$treat, labels = sty$type)]
+  
+  g_h <- ggplot(pts, aes(r_prim, r_hier, colour = group)) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey50") +
+    geom_point(alpha = 0.7, size = 1.8) +
+    facet_wrap(~ panel) +
+    scale_colour_manual(values = c("Consistent" = "grey20", "Inconsistent" = "#E08214")) +
+    labs(x = "Posterior mean of r (primary model)",
+         y = "Posterior mean of r (hierarchical model)", colour = NULL) +
+    theme_minimal(base_size = 11) +
+    theme(legend.position = "bottom", panel.grid.minor = element_blank())
+  
+  f_h <- file.path(path_fig, "r-hierarchical-vs-primary.png")
+  ggsave(f_h, g_h, width = 7, height = 3.6, dpi = 300)
+  msg("Saved: ", f_h)
   
   # ---- Figure: both estimates by treatment ----
   pd <- dt[fit %in% treatments]

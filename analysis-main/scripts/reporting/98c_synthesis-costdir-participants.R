@@ -28,7 +28,32 @@
 #       in percentage points; and the raw descriptives within-person SD of
 #       positive stakes, share of focal stakes 50 or 100, mean positive
 #       stake, median decision time in seconds, and the CRRA coefficient
-#       r_mean of the MPL model). Descriptive, no model.
+#       r_mean of the MPL model). Descriptive, no model. Each contrast also
+#       reports the mean and median over all participants (mean_all,
+#       median_all) and, for welfare loss, betting rate and absolute stake
+#       deviation, the probability of superiority of group A over group B
+#       (auc, ties count one half; weighted by the bootstrap weights). The
+#       contrast "at least one strategy vs. no strategy" compares participants
+#       with a credible slope on at least one cue to those uncertain on both.
+#   B3b Decomposition of the welfare-loss gap between participants with at
+#       least one strategy and participants with none. Per posterior draw and
+#       weight vector, welfare loss is regressed (weighted OLS) on the
+#       betting rate and the absolute stake deviation across participants;
+#       the gap in mean welfare loss is then split into a betting part
+#       (coefficient x gap in betting rate), a staking part (coefficient x
+#       gap in stake deviation) and a remainder (residual gap). Linear and
+#       descriptive: it does not model the interaction of betting and staking.
+#   B3c Betting and staking by sequence imbalance class (balanced 3-3, 2-4,
+#       1-5, pure 0-6) for participants with at least one strategy and with
+#       none. Per participant and class: betting rate (%), mean stake and mean
+#       optimal stake a* on betting trials, mean signed deviation stake - a*
+#       and mean absolute deviation |stake - a*| (ECU). Group means and their
+#       difference (strategy minus none) are computed with Bayesian-bootstrap
+#       weights over participants (K draws); classes and a* are taken as given
+#       (no posterior draws), so intervals reflect sampling uncertainty only.
+#   B4  Rank test (Mann-Whitney) of the same contrasts on the participants'
+#       posterior medians, as a robustness check. It treats the posterior
+#       medians as observed, so it ignores estimation uncertainty.
 #
 # SAMPLE
 #   Treatments with a confirmatory sample (cfg$design$a_flags$betting_normative):
@@ -45,6 +70,9 @@
 #   data/output/csv/synthesis-<tr>-costdir-pid-spearman.csv
 #   data/output/csv/synthesis-<tr>-costdir-pid-ols.csv
 #   data/output/csv/synthesis-<tr>-costdir-pid-groups.csv
+#   data/output/csv/synthesis-<tr>-costdir-pid-decomposition.csv
+#   data/output/csv/synthesis-<tr>-costdir-pid-byclass.csv
+#   data/output/csv/synthesis-<tr>-costdir-pid-ranktest.csv
 #   data/output/tables/synthesis-<tr>-costdir-pid.tex
 #
 # NOTES
@@ -68,6 +96,12 @@ synthesis_costdir_participants <- function(cfg) {
   master <- fread(file.path(path_der, "master-sequences.csv"), encoding = "UTF-8")
   master[, `:=`(pid = as.character(pid), treat = as.character(treat),
                 stake = fifelse(is.na(as.numeric(stake)), 0, as.numeric(stake)))]
+  
+  # weighted probability of superiority, P(A > B) with ties counting one half
+  wauc <- function(xa, wa, xb, wb) {
+    d <- outer(xa, xb, function(a, b) (a > b) + 0.5 * (a == b))
+    sum(outer(wa, wb) * d) / (sum(wa) * sum(wb))
+  }
   
   out <- list()
   
@@ -93,7 +127,7 @@ synthesis_costdir_participants <- function(cfg) {
     
     nb_all <- master[treat == tr, .(n_bets = sum(stake > 0)), by = pid]
     
-    b_sp <- list(); b_ols <- list(); b_grp <- list()
+    b_sp <- list(); b_ols <- list(); b_grp <- list(); b_rk <- list(); b_dec <- list(); b_cls <- list()
     for (tg in tgs) {
       S_ <- L[[tg]]
       if (any(vapply(S_, is.null, logical(1L)))) next
@@ -171,7 +205,10 @@ synthesis_costdir_participants <- function(cfg) {
              A = run_cls == "against", B = run_cls == "uncertain"),
         list(lab = "uncertain on both vs. all others",
              A = imb_cls == "uncertain" & run_cls == "uncertain",
-             B = !(imb_cls == "uncertain" & run_cls == "uncertain")))
+             B = !(imb_cls == "uncertain" & run_cls == "uncertain")),
+        list(lab = "at least one strategy vs. no strategy",
+             A = !(imb_cls == "uncertain" & run_cls == "uncertain"),
+             B = imb_cls == "uncertain" & run_cls == "uncertain"))
       # model-based outcomes (percentage points)
       b_out <- list(loss = 100 * lossP, bet = 100 * betP, abs_stake = 100 * stkP)
       # raw participant descriptives (identical across draws); NA when fewer
@@ -198,14 +235,19 @@ synthesis_costdir_participants <- function(cfg) {
           Ym <- b_out[[oc]]
           for (ct in contrasts) {
             if (sum(ct$A) < 3L || sum(ct$B) < 3L) next
+            with_auc <- unc == "posterior+bootstrap" && oc %in% c("loss", "bet", "abs_stake")
             res <- sapply(1:K, function(k) {
               ia <- ct$A & !is.na(Ym[k, ]); ib <- ct$B & !is.na(Ym[k, ])
               xa <- Ym[k, ia]; wa <- Wm[k, ia]
               xb <- Ym[k, ib]; wb <- Wm[k, ib]
+              ok <- !is.na(Ym[k, ])
               c(mean_a = wmean(xa, wa), mean_b = wmean(xb, wb),
                 mean_diff = wmean(xa, wa) - wmean(xb, wb),
                 median_a = wmed(xa, wa), median_b = wmed(xb, wb),
-                median_diff = wmed(xa, wa) - wmed(xb, wb))
+                median_diff = wmed(xa, wa) - wmed(xb, wb),
+                mean_all = wmean(Ym[k, ok], Wm[k, ok]),
+                median_all = wmed(Ym[k, ok], Wm[k, ok]),
+                if (with_auc) c(auc = wauc(xa, wa, xb, wb)))
             })
             b_grp[[length(b_grp) + 1L]] <- rbindlist(lapply(rownames(res), function(q)
               tl$sumrow(res[q, ], treatment = tr, sample = tg, uncertainty = unc, outcome = oc,
@@ -214,8 +256,76 @@ synthesis_costdir_participants <- function(cfg) {
           }
         }
       }
+      
+      # ---- B3b: decomposition of the welfare-loss gap (strategy vs. none) ----
+      ctd <- contrasts[[length(contrasts)]]
+      if (sum(ctd$A) >= 3L && sum(ctd$B) >= 3L) {
+        dec <- sapply(1:K, function(k) {
+          l <- b_out$loss[k, ]; b <- b_out$bet[k, ]; a <- b_out$abs_stake[k, ]; w <- W[k, ]
+          cf <- lm.wfit(cbind(1, b, a), l, w)$coefficients
+          dm <- function(x) wmean(x[ctd$A], w[ctd$A]) - wmean(x[ctd$B], w[ctd$B])
+          tot <- dm(l); bt <- unname(cf[2]) * dm(b); st <- unname(cf[3]) * dm(a)
+          c(total = tot, betting = bt, staking = st, remainder = tot - bt - st,
+            beta_bet = unname(cf[2]), beta_stake = unname(cf[3]))
+        })
+        b_dec[[length(b_dec) + 1L]] <- rbindlist(lapply(rownames(dec), function(q)
+          tl$sumrow(dec[q, ], treatment = tr, sample = tg, uncertainty = "posterior+bootstrap",
+                    contrast = ctd$lab, component = q, n_a = sum(ctd$A), n_b = sum(ctd$B), n = n)))
+      }
+      
+      # ---- B3c: betting and staking by imbalance class and strategy group ----
+      at <- tryCatch(as.data.table(analysis_trials(tr, paste0("rq3-", tg))),
+                     error = function(e) NULL)
+      if (!is.null(at) && all(c("pid", "trial_id", "stake", "bet", "a_star") %in% names(at))) {
+        at[, pid := as.character(pid)]
+        im <- unique(master[treat == tr, .(pid, trial_id, imb_abs = as.numeric(imbalance_abs))],
+                     by = c("pid", "trial_id"))
+        at <- merge(at[pid %in% P], im, by = c("pid", "trial_id"), all.x = TRUE)
+        at[, cls := fifelse(imb_abs < 0.01, "3-3", fifelse(imb_abs < 0.4, "2-4",
+                    fifelse(imb_abs < 0.7, "1-5", "0-6")))]
+        pp <- at[, {
+          bb <- bet == 1
+          .(bet    = 100 * mean(bet),
+            stake  = if (any(bb)) mean(stake[bb]) else NA_real_,
+            astar  = if (any(bb)) mean(a_star[bb]) else NA_real_,
+            dev    = if (any(bb)) mean(stake[bb] - a_star[bb]) else NA_real_,
+            absdev = if (any(bb)) mean(abs(stake[bb] - a_star[bb])) else NA_real_)
+        }, by = .(pid, cls)]
+        for (cl in c("3-3", "2-4", "1-5", "0-6")) {
+          ppc <- pp[cls == cl][match(P, pid)]
+          for (oc in c("bet", "stake", "astar", "dev", "absdev")) {
+            v  <- ppc[[oc]]; ok <- !is.na(v)
+            ia <- ctd$A & ok; ib <- ctd$B & ok
+            if (sum(ia) < 3L || sum(ib) < 3L) next
+            res <- sapply(1:K, function(k) {
+              wa <- W[k, ia]; wb <- W[k, ib]
+              c(strategy = wmean(v[ia], wa), none = wmean(v[ib], wb),
+                diff = wmean(v[ia], wa) - wmean(v[ib], wb))
+            })
+            b_cls[[length(b_cls) + 1L]] <- rbindlist(lapply(rownames(res), function(q)
+              tl$sumrow(res[q, ], treatment = tr, sample = tg, uncertainty = "bootstrap",
+                        imb_class = cl, outcome = oc, quantity = q,
+                        n_a = sum(ia), n_b = sum(ib), n = n)))
+          }
+        }
+      }
+      
+      # ---- B4: Mann-Whitney test on posterior medians ----
+      for (oc in c("loss", "bet", "abs_stake")) {
+        pm <- apply(b_out[[oc]], 2, median)
+        for (ct in contrasts) {
+          if (sum(ct$A) < 3L || sum(ct$B) < 3L) next
+          wt <- suppressWarnings(wilcox.test(pm[ct$A], pm[ct$B], exact = FALSE))
+          b_rk[[length(b_rk) + 1L]] <- data.table(
+            treatment = tr, sample = tg, outcome = oc, contrast = ct$lab,
+            n_a = sum(ct$A), n_b = sum(ct$B),
+            median_a = median(pm[ct$A]), median_b = median(pm[ct$B]),
+            p_value = wt$p.value)
+        }
+      }
     }
     b_sp <- rbindlist(b_sp); b_ols <- rbindlist(b_ols); b_grp <- rbindlist(b_grp)
+    b_rk <- rbindlist(b_rk); b_dec <- rbindlist(b_dec); b_cls <- rbindlist(b_cls)
     b_sp[, n_draws := K]
     b_ols[, `:=`(n_draws = K, uncertainty = "posterior+bootstrap")]
     
@@ -227,6 +337,20 @@ synthesis_costdir_participants <- function(cfg) {
       b_grp[, n_draws := K]
       f3 <- file.path(path_csv, paste0("synthesis-", tr, "-costdir-pid-groups.csv"))
       fwrite(b_grp, f3);  msg("Saved: ", f3)
+    }
+    if (nrow(b_dec)) {
+      b_dec[, n_draws := K]
+      f5 <- file.path(path_csv, paste0("synthesis-", tr, "-costdir-pid-decomposition.csv"))
+      fwrite(b_dec, f5);  msg("Saved: ", f5)
+    }
+    if (nrow(b_cls)) {
+      b_cls[, n_draws := K]
+      f6 <- file.path(path_csv, paste0("synthesis-", tr, "-costdir-pid-byclass.csv"))
+      fwrite(b_cls, f6);  msg("Saved: ", f6)
+    }
+    if (nrow(b_rk)) {
+      f4 <- file.path(path_csv, paste0("synthesis-", tr, "-costdir-pid-ranktest.csv"))
+      fwrite(b_rk, f4);  msg("Saved: ", f4)
     }
     
     # ---- LaTeX table (main sample) ----
