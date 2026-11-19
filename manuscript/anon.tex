@@ -1,0 +1,7 @@
+% Anonymization switch for review, shared by the main text and the online appendix.
+% Usage: \input{../anon} in the preamble. Set \anonymoustrue for the blind version.
+\newif\ifanonymous
+\anonymousfalse  % change to \anonymoustrue to hide wrapped text
+
+% \anon{text} prints the text, or a placeholder in the blind version.
+\newcommand{\anon}[1]{\ifanonymous[withheld for review]\else#1\fi}
